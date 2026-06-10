@@ -518,7 +518,13 @@
     var baseUrl = String(body.baseUrl || DEFAULT_AI_BASE).replace(/\/+$/, "");
     if (!apiKey) return jsonResp({ message: "Missing NVIDIA API key." }, 400);
     try {
-      var r = await fetch(baseUrl + "/models", { headers: { Accept: "application/json", Authorization: "Bearer " + apiKey } });
+      // Use the native-friendly fetch (originalFetch) to avoid recursion
+      // and add mode: 'cors' for better mobile compatibility
+      var r = await fetch(baseUrl + "/models", { 
+        method: "GET",
+        headers: { "Accept": "application/json", "Authorization": "Bearer " + apiKey },
+        mode: 'cors'
+      });
       var p = await r.json().catch(function () { return {}; });
       if (!r.ok) return jsonResp({ message: (p && p.error && p.error.message) || ("NVIDIA HTTP " + r.status) }, r.status);
       var data = Array.isArray(p.data) ? p.data : [];
