@@ -66,15 +66,13 @@ let state = {
   botPollIntervalSeconds: 60,
   optionsDataKey: "",
   selectedModelKey: "gpt-oss-default",
-  models: [
-    {
-      key: "gpt-oss-default",
-      id: "openai/gpt-oss-120b",
-      label: "Main Summary Model (GPT-OSS-120B)",
-      apiKey: "",
-      baseUrl: "https://integrate.api.nvidia.com/v1",
-    }
-  ],
+  models: [    {
+      key: 'meta-llama-3-1-70b-instruct',
+      id: 'meta/llama-3.1-70b-instruct',
+      label: 'Llama 3.1 70B (Default)',
+      apiKey: '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',
+      baseUrl: 'https://integrate.api.nvidia.com/v1',
+    }],
   debateModels: [
     {
       key: "llama-405b-debate",

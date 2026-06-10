@@ -1,38 +1,29 @@
 {
-  "oandaApiToken": "8497d615d9c04251e8095b15974dd83d-0e44eafc21d63cd0da3ac00ddf3c1edb",
+  "oandaApiToken": "b228b6d0d19275bca9f6d50af7e59229-b8a32a361cfa128c61474633a249735d",
   "oandaAccountId": "",
-  "globalNvidiaApiKey": "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",
+  "globalNvidiaApiKey": "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",
   "globalNvidiaApiKeys": [
-    "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"
+    "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"
   ],
   "nvidiaModels": [
     {
-      "key": "gpt-oss-default",
+      "key": "meta-llama-3-1-70b-instruct",
       "id": "meta/llama-3.1-70b-instruct",
-      "label": "Main Summary Model",
-      "apiKey": "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",
+      "label": "Llama 3.1 70B (Primary)",
+      "apiKey": "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",
       "baseUrl": "https://integrate.api.nvidia.com/v1"
     }
   ],
   "debateModels": [
     {
-      "key": "llama-405b-debate",
+      "key": "meta-llama-3-1-405b-instruct",
       "id": "meta/llama-3.1-405b-instruct",
       "label": "Llama 3.1 405B (Debater)",
-      "apiKey": "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",
-      "baseUrl": "https://integrate.api.nvidia.com/v1",
-      "bias": "both",
-      "isDebateParticipant": true
-    },
-    {
-      "key": "nemotron-70b-debate",
-      "id": "nvidia/llama-3.1-nemotron-70b-instruct",
-      "label": "Nemotron 70B (Arbiter)",
-      "apiKey": "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",
+      "apiKey": "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",
       "baseUrl": "https://integrate.api.nvidia.com/v1",
       "bias": "both",
       "isDebateParticipant": true
     }
   ],
-  "defaultModelKey": "gpt-oss-default"
+  "defaultModelKey": "meta-llama-3-1-70b-instruct"
 }
