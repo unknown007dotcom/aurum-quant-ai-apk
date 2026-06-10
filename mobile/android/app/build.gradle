@@ -7,8 +7,8 @@ android {
         applicationId "ai.aurumquant.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,9 +16,25 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Fixed signing key so EVERY build (debug & release) is signed identically.
+    // This lets the app update in place instead of failing with a signature
+    // mismatch (the cause of the stuck "installing" state). Self-signed key,
+    // suitable for sideloading (not Play Store upload).
+    signingConfigs {
+        aurum {
+            storeFile file("aurum-release.keystore")
+            storePassword "aurum2026"
+            keyAlias "aurum"
+            keyPassword "aurum2026"
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.aurum
+        }
         release {
             minifyEnabled false
+            signingConfig signingConfigs.aurum
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
