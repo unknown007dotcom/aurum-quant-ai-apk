@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aurum Quant AI | XAUUSD Trading Bot</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css?v=29">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- Notification Permission Banner -->
+  <div id="notificationBanner" class="notification-banner" style="display:none;">
+    <span>🔔 Enable push notifications for real-time liquidity sweep & breakout alerts</span>
+    <button id="notifEnableBtn" type="button" class="notif-enable-btn">Enable</button>
+    <button id="notifDismissBtn" type="button" class="notif-dismiss-btn" title="Dismiss">×</button>
+  </div>
+  <div class="shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <div class="hero-brand">
+          <img src="./logo.svg" alt="Aurum Quant AI logo" class="hero-logo">
+          <span class="hero-brand-name">Aurum Quant AI</span>
+        </div>
+        <p class="eyebrow">SMC/ICT Institutional Gold Trading Bot</p>
+        <h1>XAUUSD bot control for fast signal review and automated execution.</h1>
+        <p class="lede">
+          Built for premium trading workflows with live charting, OANDA-backed pricing, bot controls, and concise execution-ready outputs.
+          Designed for speed, clarity, and operator confidence across desktop and mobile.
+        </p>
+        <div class="hero-inline">
+          <div class="hero-stat">
+            <span>Market</span>
+            <strong>XAUUSD</strong>
+          </div>
+          <div class="hero-stat">
+            <span>Experience</span>
+            <strong>Professional interface</strong>
+          </div>
+          <div class="hero-stat">
+            <span>Output</span>
+            <strong>Bot signal plus trade state</strong>
+          </div>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <button id="settingsToggle" class="ghost-button" type="button">Settings</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <!-- Real-Time Tracker & Institutional Heatmap -->
+      <section class="panel realtime-tracker-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Real-Time Tracker</p>
+            <h2>Institutional Signal Lifecycle</h2>
+          </div>
+          <span id="lifecyclePulse" class="badge alert blink">LIVE SCANNING</span>
+        </div>
+        <div class="lifecycle-container">
+          <div class="lifecycle-steps">
+            <div id="stepDiscovery" class="lifecycle-step active">
+              <div class="step-icon">🔍</div>
+              <div class="step-content">
+                <h4>1. Discovery</h4>
+                <p id="discoveryStatus">Scanning OB & FVG zones...</p>
+              </div>
+            </div>
+            <div class="step-connector"></div>
+            <div id="stepSweep" class="lifecycle-step">
+              <div class="step-icon">🪝</div>
+              <div class="step-content">
+                <h4>2. Liquidity Hunt</h4>
+                <p id="sweepStatus">Monitoring liquidity sweeps...</p>
+              </div>
+            </div>
+            <div class="step-connector"></div>
+            <div id="stepChoch" class="lifecycle-step">
+              <div class="step-icon">⚡</div>
+              <div class="step-content">
+                <h4>3. Character Shift</h4>
+                <p id="chochStatus">Awaiting M5/M15 CHoCH...</p>
+              </div>
+            </div>
+            <div class="step-connector"></div>
+            <div id="stepTrigger" class="lifecycle-step">
+              <div class="step-icon">🎯</div>
+              <div class="step-content">
+                <h4>4. Sniper Entry</h4>
+                <p id="triggerStatus">Awaiting 70.5% OTE retest...</p>
+              </div>
+            </div>
+            <div class="step-connector"></div>
+            <div id="stepTarget" class="lifecycle-step">
+              <div class="step-icon">🏆</div>
+              <div class="step-content">
+                <h4>5. Distribution</h4>
+                <p id="targetStatus">Awaiting TP target reach...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Institutional Signal Lifecycle Info Box -->
+        <div class="institutional-lifecycle-info" id="institutionalLifecycleInfo">
+          <div class="lifecycle-info-row">
+            <span class="lifecycle-info-dot dot-extreme"></span>
+            <div><strong>🔴 Extreme Point</strong><br><span style="color:var(--muted);font-size:0.8rem;">PMH/PML/PQH/PQL — Weekly child close</span></div>
+          </div>
+          <div class="lifecycle-info-row">
+            <span class="lifecycle-info-dot dot-mid-extreme"></span>
+            <div><strong>🟠 Mid-Extreme</strong><br><span style="color:var(--muted);font-size:0.8rem;">PDH/PDL (4H) / PWH/PWL (Daily)</span></div>
+          </div>
+          <div class="lifecycle-info-row">
+            <span class="lifecycle-info-dot dot-decisional"></span>
+            <div><strong>🟡 Decisional</strong><br><span style="color:var(--muted);font-size:0.8rem;">Asian/London Session H/L — 1H child</span></div>
+          </div>
+          <div class="lifecycle-info-row">
+            <span class="lifecycle-info-dot dot-inducement"></span>
+            <div><strong>🟢 Inducement</strong><br><span style="color:var(--muted);font-size:0.8rem;">EQH/EQL, Swing Points, Round Numbers</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Institutional Liquidity Pools Panel -->
+      <section class="panel" id="liquidityPoolsPanel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">CRT Parent/Child Classification</p>
+            <h2>Institutional Liquidity Pools</h2>
+          </div>
+          <span id="liquidityPoolsBadge" class="badge blink">LIVE</span>
+        </div>
+        <div class="liquidity-pools-grid" id="liquidityPoolsGrid">
+          <p style="color:var(--muted);font-size:0.85rem;">Run a bot preview to compute liquidity pools from multi-timeframe OANDA data.</p>
+        </div>
+      </section>
+
+      <!-- Liquidity Event Box -->
+      <section class="panel" id="liquidityEventPanel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">CRT Event Detection</p>
+            <h2>Liquidity Event Monitor</h2>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <select id="eventFilterSelect" style="background:#1a2332; color:var(--text); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:2px 6px; font-size:0.75rem; cursor:pointer; outline:none;">
+              <option value="all">🔍 All Events</option>
+              <option value="sweep">🩸 Sweeps Only</option>
+              <option value="breakout">💥 Breakouts Only</option>
+              <option value="extreme">🔴 Extreme Point</option>
+              <option value="midExtreme">🟠 Mid-Extreme</option>
+              <option value="decisional">🟡 Decisional</option>
+            </select>
+            <span id="eventMonitorBadge" class="badge muted">MONITORING</span>
+          </div>
+        </div>
+        <div id="liquidityEventBox">
+          <div class="liquidity-event-box">
+            <div class="event-header"><span class="event-emoji">⏳</span><span class="event-title">Awaiting Scan</span></div>
+            <p style="color:var(--muted);font-size:0.85rem;margin:0.5rem 0 0;">Run a bot preview to detect sweep or breakout events on child-candle closes.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel chart-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Live Chart</p>
+            <h2>TradingView XAUUSD</h2>
+          </div>
+          <div class="chart-meta">
+            <span id="chartIntervalLabel" class="badge muted">15M</span>
+          </div>
+        </div>
+        <div class="chart-shell compact-chart">
+          <div id="tradingviewChart" class="chart-canvas"></div>
+        </div>
+      </section>
+
+      <section class="panel control-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Execution</p>
+            <h2>Trading bot control</h2>
+          </div>
+          <span id="connectionBadge" class="badge">Idle</span>
+        </div>
+
+        <div class="field-grid">
+          <label class="field">
+            <span>Symbol</span>
+            <input id="symbolInput" type="text" value="XAU/USD" readonly>
+          </label>
+
+          <label class="field">
+            <span>Timeframe</span>
+            <div id="timeframeSelect" class="custom-select"></div>
+          </label>
+
+          <label class="field">
+            <span>Chart Timezone</span>
+            <div id="timezoneSelect" class="custom-select"></div>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="analyzeButton" class="primary-button" type="button">Run Bot Preview</button>
+          <button id="refreshButton" class="secondary-button" type="button">Refresh Data</button>
+          <button id="startBotButton" class="secondary-button" type="button">Start Bot</button>
+          <button id="stopBotButton" class="ghost-button" type="button">Stop Bot</button>
+        </div>
+
+        <div class="decision-strip">
+          <div>
+            <p class="strip-label">AI Decision</p>
+            <strong id="decisionLabel">Waiting</strong>
+          </div>
+          <div>
+            <p class="strip-label">Confidence</p>
+            <strong id="confidenceLabel">0%</strong>
+          </div>
+          <div>
+            <p class="strip-label">Risk Mode</p>
+            <strong id="riskLabel">Flat</strong>
+          </div>
+        </div>
+
+        <div id="botRuntimeGrid" class="bot-runtime-grid">
+          <article class="bot-runtime-card">
+            <p class="strip-label">Bot Mode</p>
+            <strong id="botModeLabel">Manual</strong>
+          </article>
+          <article class="bot-runtime-card">
+            <p class="strip-label">Automation</p>
+            <strong id="botStateLabel">Stopped</strong>
+          </article>
+          <article class="bot-runtime-card">
+            <p class="strip-label">Last Action</p>
+            <strong id="botActionLabel">Waiting</strong>
+          </article>
+          <article class="bot-runtime-card">
+            <p class="strip-label">Open Trades</p>
+            <strong id="botOpenTradesLabel">0</strong>
+          </article>
+        </div>
+
+
+
+        <div id="sentinelStatus" class="sentinel-strip">
+          <div class="sentinel-header">
+            <span class="strip-label">Sentinel Safety</span>
+            <span id="sentinelBadge" class="badge muted">Standby</span>
+          </div>
+          <div id="sentinelMessage" class="sentinel-msg">Awaiting bot preview...</div>
+          <div class="sentinel-stats">
+             <span id="sentinelTime">--:-- ET</span>
+             <span id="sentinelDD">DD: --%</span>
+             <span id="sentinelStreak">Streak: 0</span>
+          </div>
+          <div class="sentinel-actions">
+             <button id="sentinelBypass" type="button" title="Bypass Sentinel Safety Rules">Manual Override</button>
+          </div>
+        </div>
+
+        <div class="market-price">
+          <p>Live Price</p>
+          <strong id="priceLabel">--</strong>
+        </div>
+
+        <div class="rmi-strip">
+          <div class="rmi-item">
+            <p class="strip-label">Institutional RMI</p>
+            <strong id="rmiValue">--</strong>
+          </div>
+          <div class="rmi-item">
+            <p class="strip-label">Strength Bias</p>
+            <strong id="rmiTrend">--</strong>
+          </div>
+        </div>
+
+        <p id="statusText" class="status-text">Ready to manage the bot.</p>
+      </section>
+
+      <section class="panel summary-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">SMC/ICT Analysis</p>
+            <h2>Execution overview</h2>
+          </div>
+        </div>
+        <div id="summaryCards" class="summary-cards"></div>
+        <div class="list-block">
+          <h3>Trade Plan</h3>
+          <ul id="tradePlanList" class="signal-list"></ul>
+        </div>
+      </section>
+
+
+
+      <section class="panel signals-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Structure</p>
+            <h2>Market structure signals</h2>
+          </div>
+        </div>
+        <div class="signal-columns">
+          <div class="list-block">
+            <h3>FVGs</h3>
+            <ul id="fvgList" class="signal-list"></ul>
+          </div>
+          <div class="list-block">
+            <h3>Order Blocks</h3>
+            <ul id="obList" class="signal-list"></ul>
+          </div>
+          <div class="list-block">
+            <h3>Structure Events</h3>
+            <ul id="structureList" class="signal-list"></ul>
+          </div>
+          <div class="list-block">
+            <h3>Reversal Zones</h3>
+            <ul id="reversalList" class="signal-list"></ul>
+          </div>
+          <div class="list-block">
+            <h3>Liquidity + PD</h3>
+            <ul id="liquidityList" class="signal-list"></ul>
+          </div>
+          <div class="list-block">
+            <h3>Fibonacci</h3>
+            <ul id="fibList" class="signal-list"></ul>
+          </div>
+          <div class="list-block">
+            <h3>CRT Scenarios</h3>
+            <ul id="scenarioList" class="signal-list"></ul>
+          </div>
+          <div class="list-block">
+            <h3>Session Levels</h3>
+            <div id="sessionLevelsDisplay">
+              <p style="color:var(--muted);font-size:0.85rem;">Session levels populate after scan.</p>
+            </div>
+          </div>
+          <div class="list-block">
+            <h3>HTF Alignment</h3>
+            <ul id="htfList" class="signal-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel ai-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">SMC/ICT Institutional Arbiter</p>
+            <h2>Model Interpretation</h2>
+          </div>
+          <span id="aiBadge" class="badge muted">Not run</span>
+        </div>
+        <div class="ai-meta" aria-hidden="true"></div>
+        <pre id="aiOutput" class="ai-output">AI analysis will appear here after a bot preview.</pre>
+      </section>
+
+      <section class="panel equations-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Three Equations Doctrine</p>
+            <h2>Institutional Mathematics Layer</h2>
+          </div>
+          <span id="equationsBadge" class="badge muted">Awaiting AI</span>
+        </div>
+        <pre id="equationsOutput" class="ai-output">The AI three-equations analysis will appear here after a bot preview.</pre>
+      </section>
+
+
+
+      <section class="panel scorecard-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Scorecard</p>
+            <h2>Institutional Confluence</h2>
+          </div>
+          <span id="scorecardBadge" class="badge muted">Not verified</span>
+        </div>
+        <div id="scorecardContent" class="scorecard-grid">
+           <!-- Dynamically filled -->
+        </div>
+      </section>
+
+      <section id="consensusPanel" class="panel consensus-panel" style="display: none;">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Arbiter Council</p>
+            <h2>Model Consensus</h2>
+          </div>
+          <button id="viewDebateDetailsButton" class="ghost-button" type="button" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 8px;">View Details</button>
+        </div>
+        <div id="consensusChartContainer" class="chart-container" style="height: 250px; margin: 20px auto; position: relative;">
+          <canvas id="consensusChart"></canvas>
+        </div>
+      </section>
+
+      <section id="lifecyclePanel" class="panel lifecycle-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Real-Time Tracker</p>
+            <h2>Institutional Signal Lifecycle</h2>
+          </div>
+        </div>
+        <div id="lifecycleContent" class="lifecycle-list">
+           <p class="empty-hint">No active signals tracked. Run a bot preview to initiate lifecycle monitoring.</p>
+        </div>
+      </section>
+
+      <section id="heatmapPanel" class="panel heatmap-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Institutional Heatmap</p>
+            <h2>Cross-Asset Sentiment</h2>
+          </div>
+        </div>
+        <div id="heatmapContent" class="heatmap-grid">
+           <!-- Dynamically filled with multi-pair sentiment -->
+           <p class="empty-hint">Initializing heatmap intelligence...</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <aside id="settingsPanel" class="settings-panel" aria-hidden="true">
+    <div class="settings-card">
+      <div class="panel-head">
+        <div>
+          <p id="settingsAccessLabel" class="panel-kicker">Secure Access</p>
+          <h2>Settings dashboard</h2>
+        </div>
+        <button id="closeSettings" class="ghost-button" type="button">Close</button>
+      </div>
+      <p id="settingsAccessHint" class="status-text">Enter password to unlock settings.</p>
+
+      <div class="admin-box basic-only">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="panel-kicker">Basic Settings</p>
+            <h3>Appearance</h3>
+          </div>
+        </div>
+        <label class="field">
+          <span>Theme</span>
+          <div id="themeSelect" class="custom-select"></div>
+        </label>
+      </div>
+
+      <div class="admin-box auth-only">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="panel-kicker">Trade History</p>
+            <h3>Analysis Archive</h3>
+          </div>
+        </div>
+        <p class="status-text">View all saved analyses, mark wins/losses, and contribute to the global learning memory.</p>
+        <div class="actions">
+          <a href="./history.html" class="secondary-button" style="text-align:center;text-decoration:none;display:inline-block;">Open Trade History</a>
+        </div>
+      </div>
+
+      <div class="admin-box admin-only">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="panel-kicker">Bot Automation</p>
+            <h3>OANDA execution profile</h3>
+          </div>
+        </div>
+        <div class="field-grid bot-settings-grid">
+          <label class="field">
+            <span>Bot Mode</span>
+            <div id="botModeSelect" class="custom-select"></div>
+          </label>
+          <label class="field">
+            <span>OANDA Environment</span>
+            <div id="oandaEnvironmentSelect" class="custom-select"></div>
+          </label>
+          <label class="field">
+            <span>Instrument</span>
+            <input id="botInstrumentInput" type="text" value="XAU_USD">
+          </label>
+          <label class="field">
+            <span>Units</span>
+            <input id="botUnitsInput" type="number" min="1" step="1" value="10">
+          </label>
+          <label class="field">
+            <span>Stop Offset</span>
+            <input id="botStopLossOffsetInput" type="number" min="0.5" step="0.5" value="3">
+          </label>
+          <label class="field">
+            <span>Take Profit Offset</span>
+            <input id="botTakeProfitOffsetInput" type="number" min="1" step="0.5" value="6">
+          </label>
+          <label class="field">
+            <span>Cooldown Minutes</span>
+            <input id="botCooldownMinutesInput" type="number" min="1" step="1" value="15">
+          </label>
+          <label class="field">
+            <span>Poll Seconds</span>
+            <input id="botPollIntervalSecondsInput" type="number" min="15" step="15" value="60">
+          </label>
+        </div>
+        <div class="actions">
+          <button id="saveBotConfigButton" class="primary-button" type="button">Save Bot Config</button>
+        </div>
+        <p class="status-text">Keep the OANDA token in server environment variables. The account ID can be auto-discovered from the token if not supplied.</p>
+      </div>
+
+      <div class="admin-box admin-only">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="panel-kicker">OANDA Access</p>
+            <h3>Manage OANDA API keys</h3>
+          </div>
+        </div>
+        <label class="field">
+          <span>OANDA API Token (Bearer Token)</span>
+          <input id="oandaApiTokenInput" type="password" placeholder="Paste your OANDA API token here">
+        </label>
+        <label class="field">
+          <span>OANDA Account ID (Optional)</span>
+          <input id="oandaAccountIdInput" type="text" placeholder="Auto-discovered if left blank">
+        </label>
+        <div class="actions">
+          <button id="saveOandaKeysButton" class="primary-button" type="button">Save OANDA Keys</button>
+        </div>
+        <p class="status-text">Your API token is securely persisted on the Cloudflare KV store and never exposed publicly.</p>
+      </div>
+
+      <div class="admin-box admin-only">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="panel-kicker">NVIDIA Access</p>
+            <h3>Global NVIDIA API key</h3>
+          </div>
+        </div>
+        <label class="field">
+          <span>Global NVIDIA API Keys (one per line, used in parallel)</span>
+          <textarea id="globalNvidiaApiKeysInput" class="native-textarea" rows="4" placeholder="nvapi-...\nnvapi-...\nnvapi-..."></textarea>
+        </label>
+        <div class="actions">
+          <button id="saveGlobalNvidiaKeyButton" class="primary-button" type="button">Save Global Key</button>
+        </div>
+        <p class="status-text">Tip: after saving this once, you can import 100+ models and they will all use this key automatically.</p>
+      </div>
+
+      <div class="settings-divider admin-only"></div>
+
+      <div class="admin-box admin-only">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="panel-kicker">Performance Analytics</p>
+            <h3>Global learning stats</h3>
+          </div>
+        </div>
+        <p id="adminStatsHint" class="status-text">Loading analytics...</p>
+        <div id="adminStatsGrid" class="admin-stats-grid"></div>
+      </div>
+
+      <label class="field admin-only">
+        <span>AI Model</span>
+        <div id="modelSelect" class="custom-select"></div>
+      </label>
+
+      <label class="field admin-only">
+        <span>Debate Mode</span>
+        <div id="debateModeSelect" class="custom-select"></div>
+      </label>
+
+      <div class="settings-divider admin-only"></div>
+
+      <div class="model-manager admin-only">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="panel-kicker">Model Library</p>
+            <h3>Manage NVIDIA models</h3>
+          </div>
+          <button id="addModelButton" class="secondary-button" type="button">Add Model</button>
+        </div>
+
+        <label class="field">
+          <span>Edit Saved Model</span>
+          <div id="modelEditorSelect" class="custom-select"></div>
+        </label>
+
+        <label class="field">
+          <span>Display Name</span>
+          <input id="modelLabelInput" type="text" placeholder="Example: gemma-4-31b-it">
+        </label>
+
+        <label class="field">
+          <span>Model ID</span>
+          <input id="modelIdInput" type="text" placeholder="Example: google/gemma-4-31b-it">
+        </label>
+
+        <label class="field">
+          <span>API Key</span>
+          <input id="modelApiKeyInput" type="password" placeholder="nvapi-...">
+        </label>
+
+        <label class="field">
+          <span>Base URL</span>
+          <input id="modelBaseUrlInput" type="text" value="https://integrate.api.nvidia.com/v1">
+        </label>
+
+        <div class="actions">
+          <button id="saveModelButton" class="primary-button" type="button">Save Model</button>
+          <button id="deleteModelButton" class="secondary-button" type="button">Delete Model</button>
+        </div>
+
+        <p id="settingsStatus" class="status-text">Saved models are stored in this browser.</p>
+        <div class="settings-divider"></div>
+        <label class="field">
+          <span>Import NVIDIA Models API Key</span>
+          <input id="nvidiaImportApiKeyInput" type="password" placeholder="nvapi-...">
+        </label>
+        <div class="actions">
+          <button id="importNvidiaModelsButton" class="secondary-button" type="button">Import NVIDIA Models</button>
+        </div>
+      </div>
+
+      <div class="admin-box admin-only">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="panel-kicker">Market Data</p>
+            <h3>Manage Twelve Data keys</h3>
+          </div>
+        </div>
+        <label class="field">
+          <span>Twelve Data API Keys (one per line)</span>
+          <textarea id="marketDataKeysInput" class="native-textarea" rows="4" placeholder="Paste multiple Twelve Data API keys here, one per line"></textarea>
+        </label>
+        <div class="actions">
+          <button id="saveMarketKeysButton" class="primary-button" type="button">Save Keys</button>
+        </div>
+      </div>
+
+      <div class="admin-box admin-only">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="panel-kicker">Alternative Reference</p>
+            <h3>Manage Alpha Vantage keys</h3>
+          </div>
+        </div>
+        <label class="field">
+          <span>Alpha Vantage API Keys (one per line)</span>
+          <textarea id="alphaVantageKeysInput" class="native-textarea" rows="4" placeholder="Paste multiple Alpha Vantage API keys here, one per line"></textarea>
+        </label>
+        <div class="actions">
+          <button id="saveAlphaVantageKeysButton" class="primary-button" type="button">Save Alpha Vantage Keys</button>
+        </div>
+      </div>
+
+      <div class="admin-box admin-only">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="panel-kicker">Options Intelligence</p>
+            <h3>Massive / Polygon keys (GLD Proxy)</h3>
+          </div>
+        </div>
+        <label class="field">
+          <span>API Keys (one per line, for Max Pain/Greeks)</span>
+          <textarea id="optionsDataKeysInput" class="native-textarea" rows="4" placeholder="Paste Massive or Polygon API keys here"></textarea>
+        </label>
+        <div class="actions">
+          <button id="saveOptionsKeysButton" class="primary-button" type="button">Save Options Keys</button>
+        </div>
+        <p class="status-text">Used to calculate Max Pain, Put/Call ratio, IV proxy, and live Greeks via the server-side GLD options proxy.</p>
+      </div>
+
+      <div class="model-manager admin-only">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="panel-kicker">Debate Engine</p>
+            <h3>Manage debate models</h3>
+          </div>
+          <button id="addDebateModelButton" class="secondary-button" type="button">Add Debate Model</button>
+        </div>
+
+        <label class="field">
+          <span>Edit Debate Model</span>
+          <div id="debateModelEditorSelect" class="custom-select"></div>
+        </label>
+
+        <label class="field">
+          <span>Display Name</span>
+          <input id="debateModelLabelInput" type="text" placeholder="Example: Qwen 3.5 122B">
+        </label>
+
+        <label class="field">
+          <span>Model ID</span>
+          <input id="debateModelIdInput" type="text" placeholder="Example: qwen/qwen3.5-122b-a10b">
+        </label>
+
+        <label class="field">
+          <span>API Key</span>
+          <input id="debateModelApiKeyInput" type="password" placeholder="nvapi-...">
+        </label>
+
+        <label class="field">
+          <span>Base URL</span>
+          <input id="debateModelBaseUrlInput" type="text" value="https://integrate.api.nvidia.com/v1">
+        </label>
+
+        <div class="actions">
+          <button id="saveDebateModelButton" class="primary-button" type="button">Save Debate Model</button>
+          <button id="deleteDebateModelButton" class="secondary-button" type="button">Delete Debate Model</button>
+        </div>
+      </div>
+
+      <label class="field admin-only">
+        <span>Temperature</span>
+        <input id="temperatureInput" type="number" min="0" max="1" step="0.1" value="0.2">
+      </label>
+
+      <label class="field admin-only">
+        <span>Analysis Candles</span>
+        <input id="candleCountInput" type="number" min="60" max="5000" step="10" value="1000">
+      </label>
+
+      <div class="locked-note">
+        <strong>Stored locally</strong>
+        <p>Market data and bot execution stay in the backend. Set OANDA secrets in the server environment, and use Settings only for non-secret bot behavior and model configuration.</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Tracker Details Popup -->
+  <aside id="trackerModal" class="password-modal" style="display: none;" aria-hidden="true">
+    <div class="password-card tracker-card" style="max-width: 550px; width: min(550px, 100%);">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker" id="trackerModalKicker">Lifecycle Step Details</p>
+          <h2 id="trackerModalTitle">Step Title</h2>
+        </div>
+        <button id="closeTrackerModal" class="ghost-button" type="button" style="padding: 4px 12px; font-size: 1.1rem; border-radius: 8px;">×</button>
+      </div>
+      <div class="tracker-modal-body" style="margin-top: 1.25rem;">
+        <p id="trackerModalSummary" style="color: var(--muted); line-height: 1.6; font-size: 0.92rem; margin-bottom: 1.25rem;"></p>
+        <div>
+          <h4 style="color: var(--accent); margin-bottom: 0.75rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.25rem;">Live Analysis Price Ranges</h4>
+          <ul id="trackerModalValues" style="list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto;">
+            <!-- Dynamic ranges will render here -->
+          </ul>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Debate Council Details Popup -->
+  <aside id="debateCouncilModal" class="password-modal" style="display: none;" aria-hidden="true">
+    <div class="password-card tracker-card" style="max-width: 750px; width: min(750px, 100%);">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker" id="debateCouncilModalKicker">Arbiter Debate Council</p>
+          <h2 id="debateCouncilModalTitle">Participating Models</h2>
+        </div>
+        <button id="closeDebateCouncilModal" class="ghost-button" type="button" style="padding: 4px 12px; font-size: 1.1rem; border-radius: 8px;">×</button>
+      </div>
+      <div class="debate-modal-layout" style="margin-top: 1.25rem;">
+        <!-- Left Column: List of Models -->
+        <div class="debate-models-sidebar">
+          <div class="debate-tabs">
+            <button id="tabDebateSuccess" class="debate-tab-btn active" type="button">SUCCESS</button>
+            <button id="tabDebateFailed" class="debate-tab-btn" type="button">FAILED</button>
+          </div>
+          <ul id="debateModelList" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px;">
+            <!-- Model list dynamically populated -->
+          </ul>
+        </div>
+        <!-- Right Column: Model Output Details -->
+        <div class="debate-content-area">
+          <h4 id="debateActiveModelName" style="color: var(--accent); margin-bottom: 0.75rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.25rem;">Select a model to view output</h4>
+          <div id="debateModelOutputContainer" class="debate-output-box">
+            <!-- Model response output shown here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <aside id="passwordModal" class="password-modal" aria-hidden="true">
+    <div class="password-card">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker">Secure Access</p>
+          <h2>Enter settings password</h2>
+        </div>
+        <button id="closePasswordModal" class="ghost-button" type="button">Close</button>
+      </div>
+      <label class="field">
+        <span>Password</span>
+        <input id="passwordInput" type="password" placeholder="Enter password">
+      </label>
+      <p id="passwordError" class="status-text"></p>
+      <div class="actions">
+        <button id="submitPasswordButton" class="primary-button" type="button">Unlock</button>
+      </div>
+    </div>
+  </aside>
+
+  <script src="./app.js?v=35"></script>
+</body>
+</html>

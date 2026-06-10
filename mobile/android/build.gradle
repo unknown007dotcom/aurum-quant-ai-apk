@@ -1,0 +1,61 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.2.1'
+        classpath 'com.google.gms:google-services:4.4.0'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+apply from: "variables.gradle"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// Force a consistent JVM target (17) across all modules so the Kotlin and Java
+// compilers agree (fixes "Inconsistent JVM-target compatibility" from plugins
+// like @capacitor/background-runner when the JDK defaults Java to 21).
+// Force a consistent JVM target (17) across every module. Some Capacitor plugins
+// (e.g. @capacitor/background-runner) hardcode Java 21 in their compileOptions,
+// while their Kotlin defaults to 17 -> "Inconsistent JVM-target" failure on a
+// JDK 17 toolchain. We normalize both the Android compileOptions and the Kotlin
+// jvmTarget to 17 for all subprojects.
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+        tasks.withType(JavaCompile).configureEach {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+        // Only Kotlin modules have these tasks; match by name to avoid referencing
+        // Kotlin classes in pure-Java modules.
+        tasks.matching { it.name == "compileDebugKotlin" || it.name == "compileReleaseKotlin" }.configureEach {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+        }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

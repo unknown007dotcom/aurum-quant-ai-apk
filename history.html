@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aurum Quant AI | Analysis History</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="shell history-shell">
+    <header class="hero history-hero">
+      <div class="hero-copy">
+        <div class="hero-brand">
+          <img src="./logo.svg" alt="Aurum Quant AI logo" class="hero-logo">
+          <span class="hero-brand-name">Aurum Quant AI</span>
+        </div>
+        <p class="eyebrow">Analysis Archive</p>
+        <h1>Saved XAUUSD analysis history.</h1>
+        <p class="lede">
+          Open any saved timestamp to review the stored summary, execution overview, and AI overlay in one focused view.
+        </p>
+      </div>
+      <div class="hero-actions">
+        <a href="./index.html" class="ghost-button history-back">Back To Terminal</a>
+      </div>
+    </header>
+
+    <main class="history-layout">
+      <section class="panel history-list-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Saved Entries</p>
+            <h2>History timeline</h2>
+          </div>
+          <div class="history-toolbar">
+            <button id="exportHistoryButton" class="secondary-button" type="button">Export History</button>
+            <button id="clearHistoryButton" class="secondary-button" type="button">Clear All</button>
+          </div>
+        </div>
+        <div id="historyEntries" class="history-entries"></div>
+      </section>
+
+      <section class="panel history-detail-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Selected Analysis</p>
+            <h2 id="historyDetailTitle">Choose a saved timestamp</h2>
+          </div>
+          <button id="deleteHistoryButton" class="ghost-button" type="button" disabled>Delete</button>
+        </div>
+        <div id="historyEmptyState" class="history-empty">
+          Click any date and time from the left to open that saved analysis.
+        </div>
+        <div id="historyDetail" class="history-detail" hidden>
+          <div class="history-detail-meta">
+            <span id="historyDetailTime" class="badge muted">--</span>
+            <span id="historyDetailTimeframe" class="badge muted">--</span>
+            <span id="historyDetailPrice" class="badge muted">--</span>
+          </div>
+          <article class="history-card">
+            <p class="panel-kicker">Summary</p>
+            <div id="historySummary" class="history-copy"></div>
+          </article>
+          <article class="history-card">
+            <p class="panel-kicker">Execution Overview</p>
+            <div id="historyExecution" class="history-copy"></div>
+          </article>
+          <article class="history-card">
+            <p class="panel-kicker">Trade Levels</p>
+            <div id="historyTradeLevels" class="history-copy"></div>
+          </article>
+          <article class="history-card">
+            <p class="panel-kicker">AI Overlay</p>
+            <pre id="historyAiOverlay" class="ai-output history-ai-output"></pre>
+          </article>
+          <article class="history-card">
+            <p class="panel-kicker">AI Auto-Evaluation</p>
+            <div id="historyAutoEval" class="history-copy">
+              <p class="muted">AI will automatically evaluate this trade as the market moves.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./history.js?v=16"></script>
+</body>
+</html>

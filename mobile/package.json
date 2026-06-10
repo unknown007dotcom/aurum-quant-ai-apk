@@ -1,0 +1,21 @@
+{
+  "name": "aurum-quant-ai-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aurum Quant AI - Android (Capacitor) wrapper",
+  "scripts": {
+    "build:www": "node scripts/build-www.mjs",
+    "sync": "npm run build:www && cap sync android",
+    "open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/background-runner": "^2.3.1",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/local-notifications": "^6.1.0",
+    "@capacitor/preferences": "^6.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "aurum-quant-ai",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "firebase": "^12.12.1",
+    "firebase-admin": "^12.5.0"
+  }
+}

@@ -1,0 +1,21 @@
+# Node
+node_modules/
+
+# Generated web bundle (rebuilt by scripts/build-www.mjs)
+www/
+
+# Android build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/local.properties
+android/.idea/
+*.iml
+
+# Keep the prebuilt APK in apk/ (do NOT ignore it)
+!apk/
+!apk/*.apk

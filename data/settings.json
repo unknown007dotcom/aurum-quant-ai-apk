@@ -1,0 +1,38 @@
+{
+  "oandaApiToken": "8497d615d9c04251e8095b15974dd83d-0e44eafc21d63cd0da3ac00ddf3c1edb",
+  "oandaAccountId": "",
+  "globalNvidiaApiKey": "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",
+  "globalNvidiaApiKeys": [
+    "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"
+  ],
+  "nvidiaModels": [
+    {
+      "key": "gpt-oss-default",
+      "id": "meta/llama-3.1-70b-instruct",
+      "label": "Main Summary Model",
+      "apiKey": "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",
+      "baseUrl": "https://integrate.api.nvidia.com/v1"
+    }
+  ],
+  "debateModels": [
+    {
+      "key": "llama-405b-debate",
+      "id": "meta/llama-3.1-405b-instruct",
+      "label": "Llama 3.1 405B (Debater)",
+      "apiKey": "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",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "bias": "both",
+      "isDebateParticipant": true
+    },
+    {
+      "key": "nemotron-70b-debate",
+      "id": "nvidia/llama-3.1-nemotron-70b-instruct",
+      "label": "Nemotron 70B (Arbiter)",
+      "apiKey": "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",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "bias": "both",
+      "isDebateParticipant": true
+    }
+  ],
+  "defaultModelKey": "gpt-oss-default"
+}

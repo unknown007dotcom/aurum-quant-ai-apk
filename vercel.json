@@ -1,0 +1,23 @@
+{
+  "crons": [
+    {
+      "path": "/api/auto-analyze",
+      "schedule": "5 0 * * *"
+    },
+    {
+      "path": "/api/auto-learn",
+      "schedule": "35 0 * * *"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index.js"
+    }
+  ],
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 300
+    }
+  }
+}
