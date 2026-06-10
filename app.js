@@ -1,11 +1,3 @@
-window.onerror = function(msg, url, line) { 
-    const errDiv = document.createElement('div');
-    errDiv.style.position = 'fixed'; errDiv.style.top = '0'; errDiv.style.left = '0';
-    errDiv.style.width = '100%'; errDiv.style.background = 'red'; errDiv.style.color = 'white';
-    errDiv.style.zIndex = '10000'; errDiv.style.padding = '10px'; errDiv.style.fontSize = '12px';
-    errDiv.innerHTML = '<b>JS ERROR:</b> ' + msg + ' <br>Line: ' + line;
-    document.body.appendChild(errDiv);
-};
 /**
  * Aurum Quant AI - Institutional Trading OS
  * Full Consolidated Production Build (v1.1)
@@ -32,7 +24,7 @@ const HISTORY_STORAGE_KEY = "xauusd-analyzer-history-v1";
 const DEVICE_ID_KEY = "xauusd-device-id-v1";
 const EDGE_API_BASE = (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"))
     ? (window.location.port === "3000" ? "/api" : "http://127.0.0.1:8787")
-    : "https://aurum-quant-edge.aurum-quant-ai.workers.dev";
+    : "https://aurum-quant-ai.vercel.app/api";
 const APP_CONFIG = {
   marketMtfPath: "/market-mtf",
   aiChatPath: "/ai-decision",
@@ -3786,27 +3778,33 @@ function initSettingsUI() {
         const baseUrl = dom.get('#modelBaseUrlInput')?.value?.trim() || APP_CONFIG.defaultBaseUrl;
         if (!apiKey) { setSettingsStatus('Please enter an API key.'); return; }
         importNvidiaBtn.disabled = true;
-        setSettingsStatus('Connecting DIRECTLY to NVIDIA...');
+        setSettingsStatus('Fetching models via on-device backend...');
         try {
-            const res = await fetch(`${baseUrl}/models`, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${apiKey}`, 'Accept': 'application/json' }
+            // Calling the relative path ensures aurum-backend.js intercepts it
+            // and uses its internal logic to talk to NVIDIA.
+            const res = await fetch(`${EDGE_API_BASE}${APP_CONFIG.settingsPath}?action=fetch-nvidia`, {
+                method: 'POST',
+                headers: { 
+                    'x-admin-password': SETTINGS_PASSWORD,
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ apiKey, baseUrl })
             });
-            const payload = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(payload?.error?.message || `NVIDIA Error ${res.status}`);
-            const models = (payload.data || []).map(m => ({
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data?.message || `On-device Error ${res.status}`);
+            const imported = (data.models || []).map(m => ({
                 key: String(m.id || '').replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase(),
                 id: String(m.id || ''), 
                 label: String(m.label || m.id), 
                 apiKey, 
                 baseUrl
             })).filter(m => m.id);
-            state.models = mergeImportedModels(state.models, models);
-            state.debateModels = mergeImportedModels(state.debateModels, models.map(m => ({ ...m, bias: 'both', isDebateParticipant: true })));
+            state.models = mergeImportedModels(state.models, imported);
+            state.debateModels = mergeImportedModels(state.debateModels, imported.map(m => ({ ...m, bias: 'both', isDebateParticipant: true })));
             saveLocalSettings(); renderModelDropdowns();
-            setSettingsStatus(`Successfully imported ${models.length} models.`);
+            setSettingsStatus(`Success: Imported ${imported.length} models.`);
         } catch (e) {
-            setSettingsStatus('Direct Mode Error: ' + e.message);
+            setSettingsStatus('Import Error: ' + e.message);
         } finally {
             importNvidiaBtn.disabled = false;
         }
