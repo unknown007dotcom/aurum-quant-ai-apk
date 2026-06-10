@@ -82,4 +82,4 @@ jobs:
             Download `aurum-quant-ai.apk` below and sideload it on your Android phone.
           files: artifact/aurum-quant-ai.apk
           fail_on_unmatched_files: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}

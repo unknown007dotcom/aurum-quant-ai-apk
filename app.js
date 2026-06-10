@@ -4,6 +4,12 @@
  * Stateful SMC/ICT + RMI + Arbiter Council
  */
 
+// --- Helper functions ---
+const safeToFixed = (val, dec = 2) => {
+    const n = Number(val);
+    return Number.isFinite(n) ? n.toFixed(dec) : "0.00";
+};
+
 // --- Dynamic Imports ---
 let FibonacciEngine = null;
 import("./modules/engines/FibonacciEngine.js").then(mod => {
@@ -1752,11 +1758,11 @@ function buildLocalAiFallback(analysis, reason) {
     const bias = analysis?.rmi?.bias || "neutral";
     const direction = trend === "bullish" ? "Buy" : trend === "bearish" ? "Sell" : "Stay Flat";
     const isFlat = direction === "Stay Flat";
-    const tp1 = analysis?.decision?.tp1 ? Number(analysis.decision.tp1).toFixed(2) : "N/A";
-    const stop = analysis?.decision?.stopPrice ? Number(analysis.decision.stopPrice).toFixed(2) : "N/A";
+    const tp1 = analysis?.decision?.tp1 ? safeToFixed(analysis.decision.tp1) : "N/A";
+    const stop = analysis?.decision?.stopPrice ? safeToFixed(analysis.decision.stopPrice) : "N/A";
     const summaryText = isFlat
-        ? `Rule engine signals a neutral posture on XAU/USD. RMI (${rmi.toFixed(2)}) is ${bias}. No directional edge detected — staying flat until structure confirms. ${reason}`
-        : `Rule engine signals a ${direction.toLowerCase()} setup on XAU/USD at $${price.toFixed(2)}. RMI (${rmi.toFixed(2)}) is ${bias}. Structure favors ${trend} continuation. AI Arbiter offline — deterministic analysis shown. ${reason}`;
+        ? `Rule engine signals a neutral posture on XAU/USD. RMI (${safeToFixed(rmi)}) is ${bias}. No directional edge detected — staying flat until structure confirms. ${reason}`
+        : `Rule engine signals a ${direction.toLowerCase()} setup on XAU/USD at $${safeToFixed(price)}. RMI (${safeToFixed(rmi)}) is ${bias}. Structure favors ${trend} continuation. AI Arbiter offline — deterministic analysis shown. ${reason}`;
 
     const payload = {
         researcher: {
@@ -1962,42 +1968,42 @@ function renderSessionLevels(sessionLevels) {
     if (!container || !sessionLevels) return;
 
     let html = "";
-    if (sessionLevels.asianHigh !== null) {
+    if (sessionLevels.asianHigh != null) {
         const asianClass = sessionLevels.asianLocked ? "locked" : "tracking";
         html += `<div class="session-level asian ${asianClass}">
             <span class="session-label">🌏 Asian High</span>
-            <span class="session-price">$${sessionLevels.asianHigh.toFixed(2)}</span>
+            <span class="session-price">$${safeToFixed(sessionLevels.asianHigh)}</span>
             <span class="session-status">${sessionLevels.asianLocked ? "LOCKED" : "TRACKING"}</span>
         </div>`;
         html += `<div class="session-level asian ${asianClass}">
             <span class="session-label">🌏 Asian Low</span>
-            <span class="session-price">$${sessionLevels.asianLow.toFixed(2)}</span>
+            <span class="session-price">$${safeToFixed(sessionLevels.asianLow)}</span>
             <span class="session-status">${sessionLevels.asianLocked ? "LOCKED" : "TRACKING"}</span>
         </div>`;
     }
-    if (sessionLevels.londonHigh !== null) {
+    if (sessionLevels.londonHigh != null) {
         const londonClass = sessionLevels.londonLocked ? "locked" : "tracking";
         html += `<div class="session-level london ${londonClass}">
             <span class="session-label">🇬🇧 London High</span>
-            <span class="session-price">$${sessionLevels.londonHigh.toFixed(2)}</span>
+            <span class="session-price">$${safeToFixed(sessionLevels.londonHigh)}</span>
             <span class="session-status">${sessionLevels.londonLocked ? "LOCKED" : "TRACKING"}</span>
         </div>`;
         html += `<div class="session-level london ${londonClass}">
             <span class="session-label">🇬🇧 London Low</span>
-            <span class="session-price">$${sessionLevels.londonLow.toFixed(2)}</span>
+            <span class="session-price">$${safeToFixed(sessionLevels.londonLow)}</span>
             <span class="session-status">${sessionLevels.londonLocked ? "LOCKED" : "TRACKING"}</span>
         </div>`;
     }
-    if (sessionLevels.nyHigh !== null) {
+    if (sessionLevels.nyHigh != null) {
         const nyClass = sessionLevels.nyLocked ? "locked" : "tracking";
         html += `<div class="session-level ny ${nyClass}">
             <span class="session-label">🗽 New York High</span>
-            <span class="session-price">$${sessionLevels.nyHigh.toFixed(2)}</span>
+            <span class="session-price">$${safeToFixed(sessionLevels.nyHigh)}</span>
             <span class="session-status">${sessionLevels.nyLocked ? "LOCKED" : "TRACKING"}</span>
         </div>`;
         html += `<div class="session-level ny ${nyClass}">
             <span class="session-label">🗽 New York Low</span>
-            <span class="session-price">$${sessionLevels.nyLow.toFixed(2)}</span>
+            <span class="session-price">$${safeToFixed(sessionLevels.nyLow)}</span>
             <span class="session-status">${sessionLevels.nyLocked ? "LOCKED" : "TRACKING"}</span>
         </div>`;
     }
@@ -3831,7 +3837,6 @@ function initSettingsUI() {
             ]);
 
             const importedSummaryModels = data.models
-                .filter((m) => permittedModels.has(String(m.id || "").trim()))
                 .map((m) => {
                     const id = String(m.id || "").trim();
                     return {
@@ -3841,7 +3846,7 @@ function initSettingsUI() {
                         apiKey,
                         baseUrl,
                     };
-                }).filter((m) => m.id);
+                }).filter((m) => m.id && !state.nvidiaModels.some(sm => sm.id === m.id));
 
             const importedDebateModels = importedSummaryModels.map((m) => ({
                 ...m,
@@ -4423,23 +4428,23 @@ function renderFibonacciOteUI(mtfData) {
                 <div style="display:flex; flex-direction:column; gap:0.4rem; font-size:0.82rem;">
                     <div style="display:flex; justify-content:space-between;">
                         <span>Level 1.0 (Stop Loss)</span>
-                        <strong style="color:var(--text); font-family:monospace;">$${fib.sl.toFixed(2)}</strong>
+                        <strong style="color:var(--text); font-family:monospace;">$${safeToFixed(fib.sl)}</strong>
                     </div>
                     <div style="display:flex; justify-content:space-between;">
                         <span>Level 0.705 (OTE Bottom)</span>
-                        <strong style="color:var(--text); font-family:monospace;">$${fib.levels[0.705].toFixed(2)}</strong>
+                        <strong style="color:var(--text); font-family:monospace;">$${safeToFixed(fib.levels[0.705])}</strong>
                     </div>
                     <div style="display:flex; justify-content:space-between;">
                         <span>Level 0.618 (OTE Top)</span>
-                        <strong style="color:var(--text); font-family:monospace;">$${fib.levels[0.618].toFixed(2)}</strong>
+                        <strong style="color:var(--text); font-family:monospace;">$${safeToFixed(fib.levels[0.618])}</strong>
                     </div>
                     <div style="display:flex; justify-content:space-between;">
                         <span>Level 0.000 (Take Profit)</span>
-                        <strong style="color:var(--text); font-family:monospace;">$${fib.tp.toFixed(2)}</strong>
+                        <strong style="color:var(--text); font-family:monospace;">$${safeToFixed(fib.tp)}</strong>
                     </div>
                     <div style="display:flex; justify-content:space-between; margin-top:0.4rem; border-top:1px dashed rgba(255,255,255,0.1); padding-top:0.4rem;">
                         <span>Current Price</span>
-                        <strong style="color:var(--text); font-family:monospace;">$${fib.currentPrice.toFixed(2)}</strong>
+                        <strong style="color:var(--text); font-family:monospace;">$${safeToFixed(fib.currentPrice)}</strong>
                     </div>
                 </div>
             </div>
