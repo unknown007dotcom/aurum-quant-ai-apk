@@ -45,68 +45,89 @@ public class RuleEngine {
             String instrument = normInstrument(s.optString("botInstrument", "XAU_USD"));
             String oandaToken = s.optString("oandaApiToken", "").trim();
             String env = s.optString("oandaEnvironment", "practice").toLowerCase();
+            boolean hasOanda = !oandaToken.isEmpty();
+            java.util.ArrayList<String> twelveKeys = collectTwelveKeys(s);
 
-            double[][] candles = null; // [n][4] = open,high,low,close
-            if (!oandaToken.isEmpty()) {
-                candles = fetchOandaCandles(oandaToken, env, instrument, "M5", 210);
+            // ----- ENTRY timeframe = 15m -----
+            double[][] m15 = hasOanda
+                    ? fetchOandaCandles(oandaToken, env, instrument, "M15", 210)
+                    : fetchTwelveCandles(twelveKeys, instrument, "15min", 210);
+            if (m15 == null || m15.length < 60) {
+                // fallback to the other provider for the entry TF
+                m15 = hasOanda
+                        ? fetchTwelveCandles(twelveKeys, instrument, "15min", 210)
+                        : fetchOandaCandles(oandaToken, env, instrument, "M15", 210);
             }
-            if (candles == null || candles.length < 60) {
-                candles = fetchTwelveCandles(collectTwelveKeys(s), instrument, "5min", 210);
-            }
-            if (candles == null || candles.length < 60) {
+            if (m15 == null || m15.length < 60) {
                 d.note = "No market data (add OANDA/Twelve Data key in Settings).";
                 return d;
             }
             d.dataOk = true;
 
-            int n = candles.length;
+            int n = m15.length;
             double[] close = new double[n];
             double[] high = new double[n];
             double[] low = new double[n];
             for (int i = 0; i < n; i++) {
-                high[i] = candles[i][1];
-                low[i] = candles[i][2];
-                close[i] = candles[i][3];
+                high[i] = m15[i][1];
+                low[i] = m15[i][2];
+                close[i] = m15[i][3];
             }
 
             double price = close[n - 1];
-            d.price = price;
-
             double sma20 = sma(close, 20);
             double sma50 = sma(close, 50);
             double sma20prev = smaAt(close, 20, n - 4); // 3 bars ago
             double slope20 = sma20 - sma20prev;
             double atr = atr(high, low, close, 14);
-            double momentum = close[n - 1] - close[n - 6]; // last 5 bars
+            double momentum = close[n - 1] - close[n - 6]; // last 5 bars (~75 min on 15m)
 
             if (Double.isNaN(sma20) || Double.isNaN(sma50) || Double.isNaN(atr) || atr <= 0) {
+                d.price = round2(price);
                 d.note = "Indicators warming up.";
                 return d;
             }
 
-            double extensionUp = price - sma20;   // >0 means above mean
+            double extensionUp = price - sma20;
             double extensionDown = sma20 - price;
 
-            boolean trendUp = sma20 > sma50 && price > sma20 && slope20 > 0;
-            boolean trendDown = sma20 < sma50 && price < sma20 && slope20 < 0;
+            boolean trend15Up = sma20 > sma50 && price > sma20 && slope20 > 0;
+            boolean trend15Down = sma20 < sma50 && price < sma20 && slope20 < 0;
 
-            // STRICT confluence: trend + momentum + not over-extended (avoid chasing)
-            boolean buy = trendUp && momentum > 0 && extensionUp < 1.8 * atr;
-            boolean sell = trendDown && momentum < 0 && extensionDown < 1.8 * atr;
+            // ----- MULTI-TIMEFRAME confirmation: 1H, 4H, Daily -----
+            int h1 = htfBias(hasOanda, oandaToken, env, twelveKeys, instrument, "H1", "1h");
+            int h4 = htfBias(hasOanda, oandaToken, env, twelveKeys, instrument, "H4", "4h");
+            int d1 = htfBias(hasOanda, oandaToken, env, twelveKeys, instrument, "D", "1day");
+            int htfScore = h1 + h4 + d1; // each is +1 (bull), -1 (bear), 0 (neutral/na)
+
+            // Require HTF agreement: at least 2 of 3 higher TFs aligned with the 15m entry,
+            // and none of them opposing.
+            boolean htfBull = htfScore >= 2 && h1 >= 0 && h4 >= 0 && d1 >= 0;
+            boolean htfBear = htfScore <= -2 && h1 <= 0 && h4 <= 0 && d1 <= 0;
+
+            // STRICT confluence: 15m trend + momentum + not over-extended + MTF aligned
+            boolean buy = trend15Up && momentum > 0 && extensionUp < 1.8 * atr && htfBull;
+            boolean sell = trend15Down && momentum < 0 && extensionDown < 1.8 * atr && htfBear;
+
+            String mtf = "MTF " + tfTag("1H", h1) + " " + tfTag("4H", h4) + " " + tfTag("1D", d1);
 
             if (buy && !sell) {
                 d.action = "BUY";
                 d.sl = round2(price - 1.5 * atr);
                 d.tp = round2(price + 2.5 * atr);
-                d.note = "Uptrend + momentum confluence";
+                d.note = "15m uptrend + " + mtf;
             } else if (sell && !buy) {
                 d.action = "SELL";
                 d.sl = round2(price + 1.5 * atr);
                 d.tp = round2(price - 2.5 * atr);
-                d.note = "Downtrend + momentum confluence";
+                d.note = "15m downtrend + " + mtf;
             } else {
                 d.action = "HOLD";
-                d.note = "No valid setup (waiting for confluence)";
+                if ((trend15Up || trend15Down) && !htfBull && !htfBear) {
+                    d.note = "15m setup but HTF not aligned (" + mtf + ")";
+                } else {
+                    d.note = "No valid setup (" + mtf + ")";
+                }
             }
             d.price = round2(price);
             return d;
@@ -114,6 +135,67 @@ public class RuleEngine {
             d.note = "Engine error: " + e.getMessage();
             return d;
         }
+    }
+
+    // Higher-timeframe bias changes slowly, so cache it ~5 min to save API quota.
+    private static final java.util.HashMap<String, long[]> HTF_CACHE = new java.util.HashMap<>();
+    private static final long HTF_TTL_MS = 5 * 60 * 1000L;
+
+    /**
+     * Returns the trend bias of a higher timeframe: +1 bullish, -1 bearish, 0 neutral/unavailable.
+     * Bias = SMA20 vs SMA50 with price confirmation. Cached for HTF_TTL_MS.
+     */
+    private static int htfBias(boolean hasOanda, String token, String env,
+                               java.util.ArrayList<String> twelveKeys, String instrument,
+                               String oandaGran, String twelveInterval) {
+        String cacheKey = instrument + "|" + oandaGran;
+        long now = System.currentTimeMillis();
+        synchronized (HTF_CACHE) {
+            long[] cached = HTF_CACHE.get(cacheKey); // [bias, timestampMs]
+            if (cached != null && now - cached[1] < HTF_TTL_MS) {
+                return (int) cached[0];
+            }
+        }
+
+        double[][] c = hasOanda
+                ? fetchOandaCandles(token, env, instrument, oandaGran, 120)
+                : fetchTwelveCandles(twelveKeys, instrument, twelveInterval, 120);
+        if (c == null || c.length < 55) {
+            // try the other provider before giving up
+            c = hasOanda
+                    ? fetchTwelveCandles(twelveKeys, instrument, twelveInterval, 120)
+                    : fetchOandaCandles(token, env, instrument, oandaGran, 120);
+        }
+
+        if (c == null || c.length < 55) {
+            // No fresh data: fall back to last known cached bias if we have one.
+            synchronized (HTF_CACHE) {
+                long[] cached = HTF_CACHE.get(cacheKey);
+                if (cached != null) return (int) cached[0];
+            }
+            return 0;
+        }
+
+        int n = c.length;
+        double[] close = new double[n];
+        for (int i = 0; i < n; i++) close[i] = c[i][3];
+        double sma20 = sma(close, 20);
+        double sma50 = sma(close, 50);
+        double price = close[n - 1];
+        int bias = 0;
+        if (!Double.isNaN(sma20) && !Double.isNaN(sma50)) {
+            if (sma20 > sma50 && price > sma50) bias = 1;
+            else if (sma20 < sma50 && price < sma50) bias = -1;
+        }
+        synchronized (HTF_CACHE) {
+            HTF_CACHE.put(cacheKey, new long[]{bias, now});
+        }
+        return bias;
+    }
+
+    private static String tfTag(String name, int bias) {
+        String arrow = bias > 0 ? "↑" : bias < 0 ? "↓" : "·";
+        return name + arrow;
     }
 
     // ---------- indicators ----------

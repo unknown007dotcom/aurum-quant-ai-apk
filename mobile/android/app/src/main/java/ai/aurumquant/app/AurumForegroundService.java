@@ -32,7 +32,9 @@ public class AurumForegroundService extends Service {
     public static final int NOTIF_ID = 4242;
     public static final String CHANNEL_ID_ALERTS = "aurum_alerts";
 
-    private static final long INTERVAL_MS = 30_000L; // refresh every 30s
+    // 15m MTF engine makes several API calls per cycle; refresh every 60s to
+    // respect rate limits / battery while staying responsive.
+    private static final long INTERVAL_MS = 60_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newSingleThreadExecutor();
