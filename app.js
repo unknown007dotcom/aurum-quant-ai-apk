@@ -1,3 +1,11 @@
+window.onerror = function(msg, url, line) { 
+    const errDiv = document.createElement('div');
+    errDiv.style.position = 'fixed'; errDiv.style.top = '0'; errDiv.style.left = '0';
+    errDiv.style.width = '100%'; errDiv.style.background = 'red'; errDiv.style.color = 'white';
+    errDiv.style.zIndex = '10000'; errDiv.style.padding = '10px'; errDiv.style.fontSize = '12px';
+    errDiv.innerHTML = '<b>JS ERROR:</b> ' + msg + ' <br>Line: ' + line;
+    document.body.appendChild(errDiv);
+};
 /**
  * Aurum Quant AI - Institutional Trading OS
  * Full Consolidated Production Build (v1.1)
@@ -1507,7 +1515,7 @@ const LiquidityEngine = {
             .sort((a, b) => a.dist - b.dist);
 
         if (candidates.length > 0) {
-            return `${candidates[0].name} @ $${candidates[0].price.toFixed(2)}`;
+            return `${candidates[0].name} @ $${safeToFixed(candidates[0].price, 2)}`;
         }
         return "Next institutional level";
     }
@@ -3772,104 +3780,33 @@ function initSettingsUI() {
         return out;
     };
     
-    const importNvidiaBtn = dom.get("#importNvidiaModelsButton");
+        const importNvidiaBtn = dom.get('#importNvidiaModelsButton');
     if (importNvidiaBtn) importNvidiaBtn.onclick = async () => {
-        const apiKey = dom.get("#nvidiaImportApiKeyInput")?.value?.trim();
-        const baseUrl = dom.get("#modelBaseUrlInput")?.value?.trim() || APP_CONFIG.defaultBaseUrl;
-        if (!apiKey) {
-            setSettingsStatus("Please enter an NVIDIA API key to import.");
-            return;
-        }
+        const apiKey = dom.get('#nvidiaImportApiKeyInput')?.value?.trim();
+        const baseUrl = dom.get('#modelBaseUrlInput')?.value?.trim() || APP_CONFIG.defaultBaseUrl;
+        if (!apiKey) { setSettingsStatus('Please enter an API key.'); return; }
         importNvidiaBtn.disabled = true;
-        setSettingsStatus("Fetching NVIDIA models...");
+        setSettingsStatus('Connecting DIRECTLY to NVIDIA...');
         try {
-            const res = await fetch(`${EDGE_API_BASE}${APP_CONFIG.settingsPath}?action=fetch-nvidia`, {
-                method: 'POST',
-                headers: { 'x-admin-password': SETTINGS_PASSWORD, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ apiKey, baseUrl })
+            const res = await fetch(`${baseUrl}/models`, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${apiKey}`, 'Accept': 'application/json' }
             });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                throw new Error(data?.message || `NVIDIA import failed (${res.status}).`);
-            }
-            if (!Array.isArray(data.models) || data.models.length === 0) {
-                throw new Error("NVIDIA returned zero models for this key.");
-            }
-
-            const permittedModels = new Set([
-                "meta/llama-3.1-8b-instruct",
-                "meta/llama-3.3-70b-instruct",
-                "abacusai/dracarys-llama-3.1-70b-instruct",
-                "meta/llama-4-maverick-17b-128e-instruct",
-                "mistralai/mistral-nemotron",
-                "nvidia/llama-3.3-nemotron-super-49b-v1",
-                "google/gemma-3n-e2b-it",
-                "google/gemma-3n-e4b-it",
-                "meta/llama-3.2-3b-instruct",
-                "mistralai/ministral-14b-instruct-2512",
-                "mistralai/mistral-large-3-675b-instruct-2512",
-                "mistralai/mistral-medium-3.5-128b",
-                "mistralai/mistral-small-4-119b-2603",
-                "mistralai/mixtral-8x7b-instruct-v0.1",
-                "nvidia/llama-3.1-nemotron-nano-8b-v1",
-                "nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
-                "nvidia/nemotron-3-super-120b-a12b",
-                "nvidia/nemotron-mini-4b-instruct",
-                "nvidia/nemotron-nano-12b-v2-vl",
-                "qwen/qwen3-coder-480b-a35b-instruct",
-                "qwen/qwen3.5-397b-a17b",
-                "stockmark/stockmark-2-100b-instruct",
-                "upstage/solar-10.7b-instruct",
-                "bytedance/seed-oss-36b-instruct",
-                "deepseek-ai/deepseek-v4-flash",
-                "deepseek-ai/deepseek-v4-pro",
-                "google/gemma-4-31b-it",
-                "meta/llama-3.1-70b-instruct",
-                "meta/llama-3.2-1b-instruct",
-                "microsoft/phi-4-mini-instruct",
-                "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-                "nvidia/nemotron-3-ultra-550b-a55b",
-                "qwen/qwen3-next-80b-a3b-instruct",
-                "openai/gpt-oss-120b",
-                "openai/gpt-oss-20b",
-                "nvidia/nvidia-nemotron-nano-9b-v2",
-                "nvidia/nemotron-3-nano-30b-a3b"
-            ]);
-
-            const importedSummaryModels = data.models
-                .map((m) => {
-                    const id = String(m.id || "").trim();
-                    return {
-                        key: id.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase(),
-                        id,
-                        label: String(m.label || id),
-                        apiKey,
-                        baseUrl,
-                    };
-                }).filter((m) => m.id && !state.nvidiaModels.some(sm => sm.id === m.id));
-
-            const importedDebateModels = importedSummaryModels.map((m) => ({
-                ...m,
-                bias: "both",
-                isDebateParticipant: true,
-            }));
-
-            // Direct assignment: replace existing lists with imported models only
-            state.models = importedSummaryModels;
-            state.debateModels = importedDebateModels;
-            state.selectedModelKey = importedSummaryModels[0]?.key || state.selectedModelKey;
-
-            const globalInput = dom.get("#globalNvidiaApiKeysInput");
-            if (globalInput && !globalInput.value.trim()) {
-                globalInput.value = apiKey;
-            }
-
-            saveLocalSettings();
-            renderModelDropdowns();
-            await syncAiBackendSettings();
-            setSettingsStatus(`Imported ${importedSummaryModels.length} NVIDIA models into Summary and Debate. Selected: ${importedSummaryModels[0]?.label || "first imported model"}.`);
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(payload?.error?.message || `NVIDIA Error ${res.status}`);
+            const models = (payload.data || []).map(m => ({
+                key: String(m.id || '').replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase(),
+                id: String(m.id || ''), 
+                label: String(m.label || m.id), 
+                apiKey, 
+                baseUrl
+            })).filter(m => m.id);
+            state.models = mergeImportedModels(state.models, models);
+            state.debateModels = mergeImportedModels(state.debateModels, models.map(m => ({ ...m, bias: 'both', isDebateParticipant: true })));
+            saveLocalSettings(); renderModelDropdowns();
+            setSettingsStatus(`Successfully imported ${models.length} models.`);
         } catch (e) {
-            setSettingsStatus(e?.message || "Error importing NVIDIA models.");
+            setSettingsStatus('Direct Mode Error: ' + e.message);
         } finally {
             importNvidiaBtn.disabled = false;
         }
