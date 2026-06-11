@@ -1,3 +1,4 @@
+const safeToFixed = (val, dec = 2) => { const n = Number(val); return Number.isFinite(n) ? n.toFixed(dec) : "0.00"; };
 /**
  * UI Rendering Service
  */
@@ -10,7 +11,7 @@ export const UI = {
     updateRmi(rmiData) {
         if (!dom.rmiValue || !dom.rmiTrend) return;
         
-        dom.rmiValue.textContent = rmiData.value.toFixed(2);
+        dom.rmiValue.textContent = safeToFixed(rmiData.value, 2);
         dom.rmiTrend.textContent = capitalize(rmiData.bias);
         
         dom.rmiValue.className = rmiData.bias;

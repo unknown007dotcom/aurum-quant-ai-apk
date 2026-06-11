@@ -1,3 +1,4 @@
+const safeToFixed = (val, dec = 2) => { const n = Number(val); return Number.isFinite(n) ? n.toFixed(dec) : "0.00"; };
 /**
  * Utility functions for Aurum Quant AI
  */
@@ -26,7 +27,7 @@ export function capitalize(value) {
 }
 
 export function formatPrice(value) {
-  return Number.isFinite(value) ? value.toFixed(2) : "--";
+  return Number.isFinite(value) ? safeToFixed(value, 2) : "--";
 }
 
 export function formatCompactNumber(value, decimals = 2) {

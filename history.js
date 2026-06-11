@@ -1,3 +1,4 @@
+const safeToFixed = (val, dec = 2) => { const n = Number(val); return Number.isFinite(n) ? n.toFixed(dec) : "0.00"; };
 const HISTORY_STORAGE_KEY = "xauusd-analyzer-history-v1";
 const EDGE_API_BASE = (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"))
     ? (window.location.port === "3000" ? "/api" : "http://127.0.0.1:8787")
@@ -463,7 +464,7 @@ function parseTradeLevels(entry) {
   // Deduplicate and sort
   const seen = new Set();
   result.tps = result.tps.filter(t => {
-    const key = t.price.toFixed(2);
+    const key = safeToFixed(t.price, 2);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -494,7 +495,7 @@ function renderTradeLevelsHtml(entry) {
   // TP Levels
   if (levels.tps.length > 0) {
     levels.tps.forEach((tp, i) => {
-      html += `<div class="trade-level-row"><span class="trade-level-label">TP${tp.level || i + 1}</span><span class="trade-level-tp">$${tp.price.toFixed(2)}</span></div>`;
+      html += `<div class="trade-level-row"><span class="trade-level-label">TP${tp.level || i + 1}</span><span class="trade-level-tp">$${safeToFixed(tp.price, 2)}</span></div>`;
     });
     const resolvedHits = autoEvalStatus === "win-tp-hit"
       ? Math.min(levels.tps.length >= 2 ? 2 : 1, levels.tps.length)
