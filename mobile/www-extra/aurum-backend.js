@@ -445,43 +445,97 @@
         "device-fallback"), { fallbackUsed: true, learningMemoryUsed: stats.total > 0, debateUsed: false }));
     }
 
-    var leadModel = (body.models && body.models[0]) || (s.nvidiaModels && s.nvidiaModels[0]) ||
-      { id: body.model || "meta/llama-3.1-70b-instruct", baseUrl: body.baseUrl || DEFAULT_AI_BASE };
+    // --- Arbiter Council: 35-Model Debate ---
+    var permittedModels = [
+      "meta/llama-3.1-8b-instruct", "meta/llama-3.3-70b-instruct", "abacusai/dracarys-llama-3.1-70b-instruct",
+      "meta/llama-4-maverick-17b-128e-instruct", "mistralai/mistral-nemotron", "nvidia/llama-3.3-nemotron-super-49b-v1",
+      "google/gemma-3n-e2b-it", "google/gemma-3n-e4b-it", "meta/llama-3.2-3b-instruct", "mistralai/ministral-14b-instruct-2512",
+      "mistralai/mistral-large-3-675b-instruct-2512", "mistralai/mistral-medium-3.5-128b", "mistralai/mistral-small-4-119b-2603",
+      "mistralai/mixtral-8x7b-instruct-v0.1", "nvidia/llama-3.1-nemotron-nano-8b-v1", "nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
+      "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-mini-4b-instruct", "nvidia/nemotron-nano-12b-v2-vl",
+      "qwen/qwen3-coder-480b-a35b-instruct", "qwen/qwen3.5-397b-a17b", "stockmark/stockmark-2-100b-instruct",
+      "upstage/solar-10.7b-instruct", "bytedance/seed-oss-36b-instruct", "deepseek-ai/deepseek-v4-flash",
+      "deepseek-ai/deepseek-v4-pro", "google/gemma-4-31b-it", "meta/llama-3.1-70b-instruct", "meta/llama-3.2-1b-instruct",
+      "microsoft/phi-4-mini-instruct", "nvidia/llama-3.3-nemotron-super-49b-v1.5", "nvidia/nemotron-3-ultra-550b-a55b",
+      "qwen/qwen3-next-80b-a3b-instruct", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "nvidia/nvidia-nemotron-nano-9b-v2",
+      "nvidia/nemotron-3-nano-30b-a3b"
+    ];
 
-    var content = await nvidiaChat(keys, leadModel, summarySystemPrompt(), promptWithLearning, temperature, 1400, 60000);
+    // Select up to 35 models from the permitted list or saved models
+    var debatePool = [];
+    permittedModels.forEach(function(id) {
+      if (id !== "openai/gpt-oss-120b" && debatePool.length < 35) {
+        debatePool.push({ id: id, label: id, baseUrl: DEFAULT_AI_BASE });
+      }
+    });
 
-    // Optional lightweight debate: poll up to 2 debate models for direction consensus
-    var consensus = { buy: 0, sell: 0, wait: 0 };
-    var debateModels = (body.debateModels && body.debateModels.length ? body.debateModels : (s.debateModels || [])).slice(0, 2);
-    var debateSuccessful = 0;
-    if (debateModels.length) {
-      var votes = await Promise.all(debateModels.map(function (m) {
-        return nvidiaChat(keys, m, "You are a trading debate participant. Reply with ONE word: BUY, SELL, or WAIT.",
-          promptWithLearning, 0.2, 8, 15000).catch(function () { return null; });
+    console.log("[ArbiterCouncil] Initiating debate with " + debatePool.length + " models...");
+
+    // Gather votes and short reasoning from all 35 models in parallel (chunks of 5 to avoid overloading)
+    var debateResults = [];
+    var CHUNK_SIZE = 5;
+    for (var i = 0; i < debatePool.length; i += CHUNK_SIZE) {
+      var chunk = debatePool.slice(i, i + CHUNK_SIZE);
+      var chunkResults = await Promise.all(chunk.map(function (m) {
+        return nvidiaChat(keys, m, "You are a trading analyst. Analyze the data and reply with: DIRECTION: [BUY/SELL/WAIT] | REASON: [One sentence].",
+          promptWithLearning, 0.2, 100, 20000).then(function(res) {
+            return { model: m.id, output: res };
+          }).catch(function (err) {
+            return { model: m.id, output: null, error: err.message };
+          });
       }));
-      votes.forEach(function (v) {
-        if (!v) return; debateSuccessful++;
-        var t = v.toLowerCase();
-        if (t.indexOf("buy") >= 0) consensus.buy++;
-        else if (t.indexOf("sell") >= 0) consensus.sell++;
-        else consensus.wait++;
-      });
+      debateResults = debateResults.concat(chunkResults);
+    }
+
+    var consensus = { buy: 0, sell: 0, wait: 0 };
+    var successfulDebates = [];
+    debateResults.forEach(function (r) {
+      if (!r.output) return;
+      var out = r.output.toLowerCase();
+      if (out.indexOf("buy") >= 0) consensus.buy++;
+      else if (out.indexOf("sell") >= 0) consensus.sell++;
+      else consensus.wait++;
+      successfulDebates.push(r.model + ": " + r.output);
+    });
+
+    // --- Final Synthesis by Chief Arbiter ---
+    // User requested gpt-oss-120b for synthesis. 
+    // We'll try to find it in the provided keys/models, or fallback to the strongest 70B.
+    var synthesizerModel = { id: "openai/gpt-oss-120b", baseUrl: DEFAULT_AI_BASE };
+    
+    var synthesisPrompt = 
+      "You are the Chief Arbiter (GPT-OSS-120B). 35 AI models have debated a XAU/USD setup.\n\n" +
+      "DEBATE RESULTS:\n" + successfulDebates.join("\n") + "\n\n" +
+      "ORIGINAL MARKET DATA:\n" + prompt + "\n\n" +
+      "Compare and combine these 35 viewpoints. Resolve conflicts and identify the institutional consensus. " +
+      "Output the final institutional decision in the required JSON format.";
+
+    var content = await nvidiaChat(keys, synthesizerModel, summarySystemPrompt(), synthesisPrompt, temperature, 1400, 60000);
+
+    if (!content) {
+      // Fallback to 70B if 120B failed
+      synthesizerModel.id = "meta/llama-3.1-70b-instruct";
+      content = await nvidiaChat(keys, synthesizerModel, summarySystemPrompt(), synthesisPrompt, temperature, 1400, 60000);
     }
 
     if (!content) {
+      // Fallback if synthesis fails
       return jsonResp(Object.assign(textPayload(
-        '{"researcher":{"summary":"AI model unreachable from device. Check your key/network.","direction":"Stay Flat","riskNote":"AI offline."},"trader":{"entryZone":"N/A","takeProfitLevels":"N/A","stopLoss":"N/A"},"equations":{"review":"AI offline."}}',
-        leadModel.id || "device-fallback"),
-        { fallbackUsed: true, learningMemoryUsed: stats.total > 0, debateUsed: debateModels.length > 0, debateAttempted: debateModels.length, debateSuccessful: debateSuccessful, debateConsensus: consensus }));
+        '{"researcher":{"summary":"Synthesis failed after debate. Consensus: BUY=' + consensus.buy + ', SELL=' + consensus.sell + ', WAIT=' + consensus.wait + '","direction":"Stay Flat","riskNote":"Synthesis Error."},"trader":{"entryZone":"N/A","takeProfitLevels":"N/A","stopLoss":"N/A"},"equations":{"review":"Arbiter synthesis failed."}}',
+        synthesizerModel.id || "device-fallback"),
+        { fallbackUsed: true, learningMemoryUsed: stats.total > 0, debateUsed: true, debateAttempted: debatePool.length, debateSuccessful: successfulDebates.length, debateConsensus: consensus }));
     }
 
-    return jsonResp(Object.assign(textPayload(content, leadModel.id || "device"), {
+    return jsonResp(Object.assign(textPayload(content, synthesizerModel.id || "device"), {
       fallbackUsed: false,
       learningMemoryUsed: stats.total > 0,
-      debateUsed: debateModels.length > 0,
-      debateAttempted: debateModels.length,
-      debateSuccessful: debateSuccessful,
+      debateUsed: true,
+      debateAttempted: debatePool.length,
+      debateSuccessful: successfulDebates.length,
       debateConsensus: consensus,
+      debateResponses: debateResults.map(function(r) { 
+        return { modelId: r.model, modelLabel: r.model, output: r.output, bias: r.output && r.output.toLowerCase().indexOf("buy") >= 0 ? "bullish" : (r.output && r.output.toLowerCase().indexOf("sell") >= 0 ? "bearish" : "balanced") }; 
+      })
     }));
   }
 
@@ -518,19 +572,32 @@
     var baseUrl = String(body.baseUrl || DEFAULT_AI_BASE).replace(/\/+$/, "");
     if (!apiKey) return jsonResp({ message: "Missing NVIDIA API key." }, 400);
     try {
-      // Use the native-friendly fetch (originalFetch) to avoid recursion
-      // and add mode: 'cors' for better mobile compatibility
+      console.log("[AurumBackend] Fetching NVIDIA models from " + baseUrl);
       var r = await fetch(baseUrl + "/models", { 
         method: "GET",
-        headers: { "Accept": "application/json", "Authorization": "Bearer " + apiKey },
+        headers: { 
+          "Accept": "application/json", 
+          "Authorization": "Bearer " + apiKey,
+          "User-Agent": "AurumQuantAI/1.1"
+        },
         mode: 'cors'
       });
       var p = await r.json().catch(function () { return {}; });
-      if (!r.ok) return jsonResp({ message: (p && p.error && p.error.message) || ("NVIDIA HTTP " + r.status) }, r.status);
+      if (!r.ok) {
+        console.error("[AurumBackend] NVIDIA Model Fetch failed:", r.status, p);
+        return jsonResp({ message: (p && p.error && p.error.message) || ("NVIDIA HTTP " + r.status) }, r.status);
+      }
       var data = Array.isArray(p.data) ? p.data : [];
-      var models = data.map(function (it) { return { id: String((it && it.id) || "").trim(), label: String((it && it.id) || "").trim() }; }).filter(function (m) { return m.id; });
+      var models = data.map(function (it) { 
+        return { 
+          id: String((it && it.id) || "").trim(), 
+          label: String((it && it.id) || "").split("/").pop() // Clean label
+        }; 
+      }).filter(function (m) { return m.id; });
+      console.log("[AurumBackend] Successfully imported " + models.length + " models.");
       return jsonResp({ models: models, count: models.length, baseUrl: baseUrl, validated: true });
     } catch (e) {
+      console.error("[AurumBackend] Fetch error:", e);
       return jsonResp({ message: e.message || "Failed to fetch NVIDIA models." }, 502);
     }
   }

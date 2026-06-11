@@ -22,9 +22,9 @@ import("./modules/engines/FibonacciEngine.js").then(mod => {
 const STORAGE_KEY = "xauusd-analyzer-settings-v1";
 const HISTORY_STORAGE_KEY = "xauusd-analyzer-history-v1";
 const DEVICE_ID_KEY = "xauusd-device-id-v1";
-const EDGE_API_BASE = (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"))
-    ? (window.location.port === "3000" ? "/api" : "http://127.0.0.1:8787")
-    : "https://aurum-quant-ai.vercel.app/api";
+const EDGE_API_BASE = (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol.includes("capacitor") || window.location.protocol.includes("http")))
+    ? (window.location.port === "3000" ? "/api" : (window.location.protocol === "file:" ? "" : "/api"))
+    : "/api";
 const APP_CONFIG = {
   marketMtfPath: "/market-mtf",
   aiChatPath: "/ai-decision",
@@ -2630,24 +2630,7 @@ function toggleScanUI(running) {
 }
 
 function applyLocalFileModeGuard() {
-    if (window.location.protocol !== "file:") return false;
-
-    const analyzeBtn = dom.get("#analyzeButton");
-    const refreshBtn = dom.get("#refreshButton");
-    const startBotBtn = dom.get("#startBotButton");
-    const stopBotBtn = dom.get("#stopBotButton");
-    if (analyzeBtn) analyzeBtn.disabled = true;
-    if (refreshBtn) refreshBtn.disabled = true;
-    if (startBotBtn) startBotBtn.disabled = true;
-    if (stopBotBtn) stopBotBtn.disabled = true;
-
-    dom.setStatus("Local file mode is disabled for this build. Start `node server.js` and open http://localhost:3000.");
-    const badge = dom.get("#connectionBadge");
-    if (badge) {
-        badge.textContent = "SERVER REQUIRED";
-        badge.className = "badge muted";
-    }
-    return true;
+    return false; // Disabled for mobile and local builds
 }
 
 async function syncHistory(analysis, aiData) {

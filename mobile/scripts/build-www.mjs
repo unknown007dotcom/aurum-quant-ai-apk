@@ -81,10 +81,10 @@ async function main() {
   if (await exists(appJsPath)) {
     let appJs = await fs.readFile(appJsPath, "utf8");
     const marker = "const EDGE_API_BASE = (typeof window !== \"undefined\"";
-    if (appJs.includes(marker) && !appJs.includes("__AURUM_API_BASE__")) {
+    if (appJs.includes(marker)) {
       appJs = appJs.replace(
-        /const EDGE_API_BASE = \(typeof window[\s\S]*?workers\.dev";/,
-        'const EDGE_API_BASE = (typeof window !== "undefined" && window.__AURUM_API_BASE__)\n    ? String(window.__AURUM_API_BASE__).replace(/\\/+$/, "")\n    : "https://aurum-quant-edge.aurum-quant-ai.workers.dev";'
+        /const EDGE_API_BASE = \(typeof window[\s\S]*?\n    : "\/api";/,
+        'const EDGE_API_BASE = (typeof window !== "undefined" && window.__AURUM_API_BASE__)\n    ? String(window.__AURUM_API_BASE__).replace(/\\/+$/, "")\n    : "";'
       );
       await fs.writeFile(appJsPath, appJs, "utf8");
       console.log("patched EDGE_API_BASE in app.js for mobile");
