@@ -1,7 +1,7 @@
 /*
  * Aurum Quant AI — ON-DEVICE BACKEND
  * ----------------------------------
- * Replaces the Vercel + Cloudflare backend. Installs a originalFetch() interceptor that
+ * Replaces the Vercel + Cloudflare backend. Installs a robustFetch() interceptor that
  * answers the SAME requests the UI already makes (to EDGE_API_BASE/...), but runs
  * everything locally on the phone:
  *   - /market-mtf   -> calls OANDA (or Twelve Data) directly for candles
@@ -34,7 +34,62 @@
   var Cap = window.Capacitor || null;
   var Preferences = Cap && Cap.Plugins ? Cap.Plugins.Preferences : null;
   var BackgroundRunner = Cap && Cap.Plugins ? Cap.Plugins.BackgroundRunner : null;
+  var NativeHttp = Cap && Cap.Plugins ? (Cap.Plugins.Http || Cap.Plugins.CapacitorHttp) : null;
   var originalFetch = window.fetch.bind(window);
+
+  /**
+   * Robust network request helper.
+   * Uses Capacitor Native Http plugin if available (bypasses CORS),
+   * falls back to the original browser fetch.
+   */
+  async function robustFetch(url, init) {
+    if (NativeHttp && NativeHttp.request) {
+      try {
+        var method = (init && init.method) || "GET";
+        var headers = {};
+        if (init && init.headers) {
+          if (init.headers instanceof Headers) {
+            init.headers.forEach(function (v, k) { headers[k] = v; });
+          } else {
+            headers = init.headers;
+          }
+        }
+
+        var options = {
+          url: url,
+          method: method,
+          headers: headers,
+          connectTimeout: 45000,
+          readTimeout: 45000
+        };
+
+        if (init && init.body && method !== "GET") {
+          try {
+            options.data = JSON.parse(init.body);
+          } catch (e) {
+            options.data = init.body;
+          }
+        }
+
+        console.log("[AurumBackend] Native Request: " + method + " " + url);
+        var response = await NativeHttp.request(options);
+        
+        var responseData = response.data;
+        if (typeof responseData !== 'string') {
+          responseData = JSON.stringify(responseData);
+        }
+
+        return new Response(responseData, {
+          status: response.status,
+          statusText: "OK",
+          headers: response.headers
+        });
+      } catch (e) {
+        console.warn("[AurumBackend] NativeHttp Error, falling back:", e);
+      }
+    }
+    return originalFetch(url, init);
+  }
 
   // ---- Background Runner KV bridge ----
   // The background task (runners/aurum-runner.js) runs in an isolated context and
@@ -172,7 +227,7 @@
     var accountId = String(s.oandaAccountId || "").trim();
     if (token && !accountId) {
       try {
-        var r = await originalFetch(oandaBase(env) + "/v3/accounts", { headers: { Authorization: "Bearer " + token } });
+        var r = await robustFetch(oandaBase(env) + "/v3/accounts", { headers: { Authorization: "Bearer " + token } });
         var p = await r.json();
         accountId = String((p.accounts && p.accounts[0] && p.accounts[0].id) || "").trim();
         if (accountId) await saveSettings({ oandaAccountId: accountId });
@@ -186,7 +241,7 @@
     // /v3/instruments/{inst}/candles does not require an account id
     var url = cfg.baseUrl + "/v3/instruments/" + encodeURIComponent(instrument) +
       "/candles?price=M&granularity=" + gran + "&count=" + clampInt(count, 200, 30, 5000);
-    var r = await originalFetch(url, { headers: { Authorization: "Bearer " + cfg.token, Accept: "application/json" } });
+    var r = await robustFetch(url, { headers: { Authorization: "Bearer " + cfg.token, Accept: "application/json" } });
     if (!r.ok) throw new Error("OANDA candles HTTP " + r.status);
     var p = await r.json();
     return (Array.isArray(p.candles) ? p.candles : [])
@@ -210,7 +265,7 @@
       try {
         var url = "https://api.twelvedata.com/time_series?symbol=" + encodeURIComponent(sym) +
           "&interval=" + interval + "&outputsize=" + clampInt(count, 200, 30, 5000) + "&apikey=" + encodeURIComponent(keys[i]) + "&format=JSON";
-        var r = await originalFetch(url);
+        var r = await robustFetch(url);
         var p = await r.json();
         if (p && Array.isArray(p.values) && p.values.length) {
           return p.values.map(function (v) {
@@ -278,7 +333,7 @@
     var instrument = normInstrument(url.searchParams.get("symbol") || DEFAULT_INSTRUMENT);
     if (cfg.configured && cfg.accountId) {
       try {
-        var r = await originalFetch(cfg.baseUrl + "/v3/accounts/" + encodeURIComponent(cfg.accountId) +
+        var r = await robustFetch(cfg.baseUrl + "/v3/accounts/" + encodeURIComponent(cfg.accountId) +
           "/pricing?instruments=" + encodeURIComponent(instrument),
           { headers: { Authorization: "Bearer " + cfg.token, Accept: "application/json" } });
         var p = await r.json();
@@ -296,7 +351,7 @@
     var sym = instrument.replace("_", "/");
     for (var i = 0; i < keys.length; i++) {
       try {
-        var rr = await originalFetch("https://api.twelvedata.com/price?symbol=" + encodeURIComponent(sym) + "&apikey=" + encodeURIComponent(keys[i]));
+        var rr = await robustFetch("https://api.twelvedata.com/price?symbol=" + encodeURIComponent(sym) + "&apikey=" + encodeURIComponent(keys[i]));
         var dd = await rr.json();
         if (dd && dd.price) return jsonResp({ price: Number(dd.price), time: new Date().toISOString() });
       } catch (e) {}
@@ -398,7 +453,7 @@
       var controller = new AbortController();
       var to = setTimeout(function () { controller.abort(); }, timeoutMs || 30000);
       try {
-        var r = await originalFetch(baseUrl + "/chat/completions", {
+        var r = await robustFetch(baseUrl + "/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: "Bearer " + keys[i] },
           body: JSON.stringify({
@@ -586,35 +641,48 @@
     var apiKey = String(body.apiKey || "").trim();
     var baseUrl = String(body.baseUrl || DEFAULT_AI_BASE).replace(/\/+$/, "");
     if (!apiKey) return jsonResp({ message: "Missing NVIDIA API key." }, 400);
-    try {
-      console.log("[AurumBackend] Fetching NVIDIA models from " + baseUrl);
-      var r = await originalFetch(baseUrl + "/models", { 
-        method: "GET",
-        headers: { 
-          "Accept": "application/json", 
-          "Authorization": "Bearer " + apiKey,
-          "User-Agent": "AurumQuantAI/1.1"
-        },
-        mode: 'cors'
-      });
-      var p = await r.json().catch(function () { return {}; });
-      if (!r.ok) {
-        console.error("[AurumBackend] NVIDIA Model Fetch failed:", r.status, p);
-        return jsonResp({ message: (p && p.error && p.error.message) || ("NVIDIA HTTP " + r.status) }, r.status);
+
+    // Try multiple common NVIDIA/OpenAI-compatible endpoints
+    var endpoints = ["/models", "/v1/models"];
+    var lastError = "Could not reach NVIDIA NIM";
+
+    for (var i = 0; i < endpoints.length; i++) {
+      try {
+        var targetUrl = baseUrl + endpoints[i];
+        console.log("[AurumBackend] Attempting model fetch: " + targetUrl);
+        
+        var r = await robustFetch(targetUrl, { 
+          method: "GET",
+          headers: { 
+            "Accept": "application/json", 
+            "Authorization": "Bearer " + apiKey,
+            "User-Agent": "AurumQuantAI/1.2"
+          }
+        });
+
+        var p = await r.json().catch(function () { return {}; });
+        
+        if (r.ok && p && Array.isArray(p.data)) {
+          var models = p.data.map(function (it) { 
+            return { 
+              id: String((it && it.id) || "").trim(), 
+              label: String((it && it.id) || "").split("/").pop() 
+            }; 
+          }).filter(function (m) { return m.id; });
+          
+          console.log("[AurumBackend] Successfully imported " + models.length + " models from " + targetUrl);
+          return jsonResp({ models: models, count: models.length, baseUrl: baseUrl, validated: true });
+        } else {
+          lastError = (p && p.error && p.error.message) || ("NVIDIA HTTP " + r.status);
+          console.warn("[AurumBackend] Endpoint " + targetUrl + " failed: " + lastError);
+        }
+      } catch (e) {
+        lastError = e.message;
+        console.error("[AurumBackend] Error fetching from " + endpoints[i] + ":", e);
       }
-      var data = Array.isArray(p.data) ? p.data : [];
-      var models = data.map(function (it) { 
-        return { 
-          id: String((it && it.id) || "").trim(), 
-          label: String((it && it.id) || "").split("/").pop() // Clean label
-        }; 
-      }).filter(function (m) { return m.id; });
-      console.log("[AurumBackend] Successfully imported " + models.length + " models.");
-      return jsonResp({ models: models, count: models.length, baseUrl: baseUrl, validated: true });
-    } catch (e) {
-      console.error("[AurumBackend] Fetch error:", e);
-      return jsonResp({ message: e.message || "Failed to fetch NVIDIA models." }, 502);
     }
+
+    return jsonResp({ message: "NVIDIA Import Failed: " + lastError + ". Check your API key and Base URL." }, 502);
   }
 
   // ---------------- endpoint: /history-log ----------------
@@ -719,12 +787,12 @@
       try {
         var keys = collectTwelveKeys(s);
         if (cfg.configured && cfg.accountId) {
-          var r = await originalFetch(cfg.baseUrl + "/v3/accounts/" + encodeURIComponent(cfg.accountId) + "/pricing?instruments=" + encodeURIComponent(instrument), { headers: { Authorization: "Bearer " + cfg.token } });
+          var r = await robustFetch(cfg.baseUrl + "/v3/accounts/" + encodeURIComponent(cfg.accountId) + "/pricing?instruments=" + encodeURIComponent(instrument), { headers: { Authorization: "Bearer " + cfg.token } });
           var p = await r.json(); var px = p && p.prices && p.prices[0];
           if (px) { var b = Number(px.closeoutBid), a = Number(px.closeoutAsk); price = (isFinite(b) && isFinite(a)) ? (a + b) / 2 : (b || a); }
         }
         if (!isFinite(price) && keys.length) {
-          var rr = await originalFetch("https://api.twelvedata.com/price?symbol=" + encodeURIComponent(instrument.replace("_", "/")) + "&apikey=" + encodeURIComponent(keys[0]));
+          var rr = await robustFetch("https://api.twelvedata.com/price?symbol=" + encodeURIComponent(instrument.replace("_", "/")) + "&apikey=" + encodeURIComponent(keys[0]));
           var dd = await rr.json(); if (dd && dd.price) price = Number(dd.price);
         }
       } catch (e) {}
@@ -783,7 +851,7 @@
       console.error("[AurumBackend] route error:", err);
       return jsonResp({ message: "On-device backend error: " + (err && err.message) }, 500);
     }
-    return originalFetch(input, init);
+    return robustFetch(input, init);
   };
 
   // expose for the mobile runtime + manual triggers
