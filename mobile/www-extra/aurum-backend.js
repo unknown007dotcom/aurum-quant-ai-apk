@@ -221,17 +221,46 @@
   function oandaBase(env) {
     return env === "live" ? "https://api-fxtrade.oanda.com" : "https://api-fxpractice.oanda.com";
   }
+  
+  async function validateOandaToken(apiKey, env) {
+    try {
+      console.log("[AurumBackend] Validating OANDA token against " + env + " environment...");
+      var r = await robustFetch(oandaBase(env) + "/v3/accounts", {
+        headers: { Authorization: "Bearer " + apiKey, Accept: "application/json" }
+      });
+      if (!r.ok) {
+        console.error("[AurumBackend] OANDA validation HTTP " + r.status);
+        return { valid: false, error: "HTTP " + r.status, message: "Check your OANDA token and environment (live/practice)." };
+      }
+      var p = await r.json().catch(function () { return {}; });
+      if (p.accounts && p.accounts.length) {
+        console.log("[AurumBackend] OANDA token valid. Found " + p.accounts.length + " account(s).");
+        return { valid: true, accountId: p.accounts[0].id, message: "OANDA token valid. Account: " + p.accounts[0].id };
+      }
+      return { valid: false, error: "No accounts found", message: "Your OANDA token has no linked trading accounts." };
+    } catch (e) {
+      console.error("[AurumBackend] OANDA validation error:", e);
+      return { valid: false, error: e.message, message: "Could not reach OANDA. Check your internet connection and API endpoint." };
+    }
+  }
+  
   async function oandaConfig(s) {
     var token = String(s.oandaApiToken || "").trim();
     var env = String(s.oandaEnvironment || "practice").toLowerCase() === "live" ? "live" : "practice";
     var accountId = String(s.oandaAccountId || "").trim();
     if (token && !accountId) {
       try {
-        var r = await robustFetch(oandaBase(env) + "/v3/accounts", { headers: { Authorization: "Bearer " + token } });
+        console.log("[AurumBackend] Auto-resolving OANDA account ID...");
+        var r = await robustFetch(oandaBase(env) + "/v3/accounts", { headers: { Authorization: "Bearer " + token, Accept: "application/json" } });
         var p = await r.json();
         accountId = String((p.accounts && p.accounts[0] && p.accounts[0].id) || "").trim();
-        if (accountId) await saveSettings({ oandaAccountId: accountId });
-      } catch (e) {}
+        if (accountId) {
+          console.log("[AurumBackend] OANDA account resolved: " + accountId);
+          await saveSettings({ oandaAccountId: accountId });
+        }
+      } catch (e) {
+        console.warn("[AurumBackend] OANDA account lookup failed:", e.message);
+      }
     }
     return { token: token, env: env, accountId: accountId, baseUrl: oandaBase(env), configured: !!token };
   }
@@ -497,7 +526,7 @@
 
     if (!keys.length) {
       return jsonResp(Object.assign(textPayload(
-        '{"researcher":{"summary":"No NVIDIA API key set. Open Settings and paste your nvapi- key to enable AI analysis.","direction":"Stay Flat","riskNote":"AI offline."},"trader":{"entryZone":"N/A","takeProfitLevels":"N/A","stopLoss":"N/A"},"equations":{"review":"AI key missing."}}',
+        '{"researcher":{"summary":"No NVIDIA API key set. Open Settings and paste your nvapi- key to enable AI analysis.","direction":"Stay Flat","riskNote":"AI offline."},"trader":{"entryZone":"[...]
         "device-fallback"), { fallbackUsed: true, learningMemoryUsed: stats.total > 0, debateUsed: false }));
     }
 
@@ -586,9 +615,9 @@
 
     if (!content) {
       return jsonResp(Object.assign(textPayload(
-        '{"researcher":{"summary":"Arbiter synthesis failed. Debate Consensus: BUY=' + consensus.buy + ', SELL=' + consensus.sell + ', WAIT=' + consensus.wait + '","direction":"Stay Flat","riskNote":"Check API connectivity."},"trader":{"entryZone":"N/A","takeProfitLevels":"N/A","stopLoss":"N/A"},"equations":{"review":"Arbiter offline."}}',
+        '{"researcher":{"summary":"Arbiter synthesis failed. Debate Consensus: BUY=' + consensus.buy + ', SELL=' + consensus.sell + ', WAIT=' + consensus.wait + '","direction":"Stay Flat","riskNo[...]
         "device-fallback"),
-        { fallbackUsed: true, learningMemoryUsed: stats.total > 0, debateUsed: true, debateAttempted: debatePool.length, debateSuccessful: successfulDebates.length, debateConsensus: consensus }));
+        { fallbackUsed: true, learningMemoryUsed: stats.total > 0, debateUsed: true, debateAttempted: debatePool.length, debateSuccessful: successfulDebates.length, debateConsensus: consensus }))[...]
     }
 
     return jsonResp(Object.assign(textPayload(content, finalModelUsed), {
@@ -620,7 +649,7 @@
     if (request.method === "GET") {
       if (action === "metrics") {
         var st = await learningStats();
-        return jsonResp({ metrics: { totalAnalyses: st.total, tpHits: st.tp, slHits: st.sl, winRate: st.winRate, evaluated: st.tp + st.sl, pending: 0, uniqueDevices: 1, learningReviewCount: (await getLessons()).length, generatedAt: Date.now() } });
+        return jsonResp({ metrics: { totalAnalyses: st.total, tpHits: st.tp, slHits: st.sl, winRate: st.winRate, evaluated: st.tp + st.sl, pending: 0, uniqueDevices: 1, learningReviewCount: (awai[...]
       }
       // On device, the holder of the phone is always admin.
       return jsonResp({ isAdmin: true, settings: s });
@@ -630,6 +659,9 @@
       if (action === "fetch-nvidia") {
         return await handleFetchNvidia(body);
       }
+      if (action === "validate-oanda") {
+        return await handleValidateOanda(body);
+      }
       var next = await saveSettings(body || {});
       syncRunnerSettings().catch(function () {});
       return jsonResp({ ok: true, settings: next });
@@ -637,13 +669,27 @@
     return jsonResp({ message: "Method not allowed." }, 405);
   }
 
+  async function handleValidateOanda(body) {
+    var apiKey = String(body.apiKey || "").trim();
+    var env = String(body.environment || "practice").toLowerCase() === "live" ? "live" : "practice";
+    if (!apiKey) return jsonResp({ message: "Missing OANDA API key." }, 400);
+    var validation = await validateOandaToken(apiKey, env);
+    return jsonResp(validation, validation.valid ? 200 : 502);
+  }
+
   async function handleFetchNvidia(body) {
     var apiKey = String(body.apiKey || "").trim();
     var baseUrl = String(body.baseUrl || DEFAULT_AI_BASE).replace(/\/+$/, "");
     if (!apiKey) return jsonResp({ message: "Missing NVIDIA API key." }, 400);
 
-    // Try multiple common NVIDIA/OpenAI-compatible endpoints
-    var endpoints = ["/models", "/v1/models"];
+    // Validate API key format
+    if (!apiKey.startsWith("nvapi-")) {
+      console.warn("[AurumBackend] NVIDIA API key does not start with 'nvapi-'");
+      return jsonResp({ message: "NVIDIA API key must start with 'nvapi-'. Check your key format." }, 400);
+    }
+
+    // Try multiple common NVIDIA/OpenAI-compatible endpoints (v1/models first)
+    var endpoints = ["/v1/models", "/models"];
     var lastError = "Could not reach NVIDIA NIM";
 
     for (var i = 0; i < endpoints.length; i++) {
@@ -682,7 +728,7 @@
       }
     }
 
-    return jsonResp({ message: "NVIDIA Import Failed: " + lastError + ". Check your API key and Base URL." }, 502);
+    return jsonResp({ message: "NVIDIA Import Failed: " + lastError + ". Verify your API key starts with 'nvapi-' and your Base URL is correct." }, 502);
   }
 
   // ---------------- endpoint: /history-log ----------------
@@ -787,7 +833,7 @@
       try {
         var keys = collectTwelveKeys(s);
         if (cfg.configured && cfg.accountId) {
-          var r = await robustFetch(cfg.baseUrl + "/v3/accounts/" + encodeURIComponent(cfg.accountId) + "/pricing?instruments=" + encodeURIComponent(instrument), { headers: { Authorization: "Bearer " + cfg.token } });
+          var r = await robustFetch(cfg.baseUrl + "/v3/accounts/" + encodeURIComponent(cfg.accountId) + "/pricing?instruments=" + encodeURIComponent(instrument), { headers: { Authorization: "Bear[...]
           var p = await r.json(); var px = p && p.prices && p.prices[0];
           if (px) { var b = Number(px.closeoutBid), a = Number(px.closeoutAsk); price = (isFinite(b) && isFinite(a)) ? (a + b) / 2 : (b || a); }
         }
@@ -867,6 +913,7 @@
     syncRunnerSettings: syncRunnerSettings,
     syncRunnerSignals: syncRunnerSignals,
     pullRunnerOutcomes: pullRunnerOutcomes,
+    validateOandaToken: validateOandaToken,
   };
 
   // Initial background-runner sync at boot (best-effort).
