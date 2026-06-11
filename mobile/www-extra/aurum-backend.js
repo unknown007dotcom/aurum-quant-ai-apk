@@ -1,7 +1,7 @@
 /*
  * Aurum Quant AI — ON-DEVICE BACKEND
  * ----------------------------------
- * Replaces the Vercel + Cloudflare backend. Installs a fetch() interceptor that
+ * Replaces the Vercel + Cloudflare backend. Installs a originalFetch() interceptor that
  * answers the SAME requests the UI already makes (to EDGE_API_BASE/...), but runs
  * everything locally on the phone:
  *   - /market-mtf   -> calls OANDA (or Twelve Data) directly for candles
@@ -34,6 +34,7 @@
   var Cap = window.Capacitor || null;
   var Preferences = Cap && Cap.Plugins ? Cap.Plugins.Preferences : null;
   var BackgroundRunner = Cap && Cap.Plugins ? Cap.Plugins.BackgroundRunner : null;
+  var originalFetch = window.fetch.bind(window);
 
   // ---- Background Runner KV bridge ----
   // The background task (runners/aurum-runner.js) runs in an isolated context and
@@ -171,7 +172,7 @@
     var accountId = String(s.oandaAccountId || "").trim();
     if (token && !accountId) {
       try {
-        var r = await fetch(oandaBase(env) + "/v3/accounts", { headers: { Authorization: "Bearer " + token } });
+        var r = await originalFetch(oandaBase(env) + "/v3/accounts", { headers: { Authorization: "Bearer " + token } });
         var p = await r.json();
         accountId = String((p.accounts && p.accounts[0] && p.accounts[0].id) || "").trim();
         if (accountId) await saveSettings({ oandaAccountId: accountId });
@@ -185,7 +186,7 @@
     // /v3/instruments/{inst}/candles does not require an account id
     var url = cfg.baseUrl + "/v3/instruments/" + encodeURIComponent(instrument) +
       "/candles?price=M&granularity=" + gran + "&count=" + clampInt(count, 200, 30, 5000);
-    var r = await fetch(url, { headers: { Authorization: "Bearer " + cfg.token, Accept: "application/json" } });
+    var r = await originalFetch(url, { headers: { Authorization: "Bearer " + cfg.token, Accept: "application/json" } });
     if (!r.ok) throw new Error("OANDA candles HTTP " + r.status);
     var p = await r.json();
     return (Array.isArray(p.candles) ? p.candles : [])
@@ -209,7 +210,7 @@
       try {
         var url = "https://api.twelvedata.com/time_series?symbol=" + encodeURIComponent(sym) +
           "&interval=" + interval + "&outputsize=" + clampInt(count, 200, 30, 5000) + "&apikey=" + encodeURIComponent(keys[i]) + "&format=JSON";
-        var r = await fetch(url);
+        var r = await originalFetch(url);
         var p = await r.json();
         if (p && Array.isArray(p.values) && p.values.length) {
           return p.values.map(function (v) {
@@ -277,7 +278,7 @@
     var instrument = normInstrument(url.searchParams.get("symbol") || DEFAULT_INSTRUMENT);
     if (cfg.configured && cfg.accountId) {
       try {
-        var r = await fetch(cfg.baseUrl + "/v3/accounts/" + encodeURIComponent(cfg.accountId) +
+        var r = await originalFetch(cfg.baseUrl + "/v3/accounts/" + encodeURIComponent(cfg.accountId) +
           "/pricing?instruments=" + encodeURIComponent(instrument),
           { headers: { Authorization: "Bearer " + cfg.token, Accept: "application/json" } });
         var p = await r.json();
@@ -295,7 +296,7 @@
     var sym = instrument.replace("_", "/");
     for (var i = 0; i < keys.length; i++) {
       try {
-        var rr = await fetch("https://api.twelvedata.com/price?symbol=" + encodeURIComponent(sym) + "&apikey=" + encodeURIComponent(keys[i]));
+        var rr = await originalFetch("https://api.twelvedata.com/price?symbol=" + encodeURIComponent(sym) + "&apikey=" + encodeURIComponent(keys[i]));
         var dd = await rr.json();
         if (dd && dd.price) return jsonResp({ price: Number(dd.price), time: new Date().toISOString() });
       } catch (e) {}
@@ -397,7 +398,7 @@
       var controller = new AbortController();
       var to = setTimeout(function () { controller.abort(); }, timeoutMs || 30000);
       try {
-        var r = await fetch(baseUrl + "/chat/completions", {
+        var r = await originalFetch(baseUrl + "/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: "Bearer " + keys[i] },
           body: JSON.stringify({
@@ -573,7 +574,7 @@
     if (!apiKey) return jsonResp({ message: "Missing NVIDIA API key." }, 400);
     try {
       console.log("[AurumBackend] Fetching NVIDIA models from " + baseUrl);
-      var r = await fetch(baseUrl + "/models", { 
+      var r = await originalFetch(baseUrl + "/models", { 
         method: "GET",
         headers: { 
           "Accept": "application/json", 
@@ -704,12 +705,12 @@
       try {
         var keys = collectTwelveKeys(s);
         if (cfg.configured && cfg.accountId) {
-          var r = await fetch(cfg.baseUrl + "/v3/accounts/" + encodeURIComponent(cfg.accountId) + "/pricing?instruments=" + encodeURIComponent(instrument), { headers: { Authorization: "Bearer " + cfg.token } });
+          var r = await originalFetch(cfg.baseUrl + "/v3/accounts/" + encodeURIComponent(cfg.accountId) + "/pricing?instruments=" + encodeURIComponent(instrument), { headers: { Authorization: "Bearer " + cfg.token } });
           var p = await r.json(); var px = p && p.prices && p.prices[0];
           if (px) { var b = Number(px.closeoutBid), a = Number(px.closeoutAsk); price = (isFinite(b) && isFinite(a)) ? (a + b) / 2 : (b || a); }
         }
         if (!isFinite(price) && keys.length) {
-          var rr = await fetch("https://api.twelvedata.com/price?symbol=" + encodeURIComponent(instrument.replace("_", "/")) + "&apikey=" + encodeURIComponent(keys[0]));
+          var rr = await originalFetch("https://api.twelvedata.com/price?symbol=" + encodeURIComponent(instrument.replace("_", "/")) + "&apikey=" + encodeURIComponent(keys[0]));
           var dd = await rr.json(); if (dd && dd.price) price = Number(dd.price);
         }
       } catch (e) {}
@@ -740,8 +741,6 @@
     for (var i = 0; i < ROUTES.length; i++) { if (u.indexOf(ROUTES[i]) >= 0) return true; }
     return false;
   }
-
-  var originalFetch = window.fetch.bind(window);
 
   window.fetch = async function (input, init) {
     try {

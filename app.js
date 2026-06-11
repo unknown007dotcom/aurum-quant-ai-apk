@@ -199,7 +199,7 @@ const AnalysisEngine = {
         let ema = closes[0];
         for (let i = 1; i < closes.length; i++) ema = closes[i] * k + ema * (1 - k);
         const rmi = (closes.at(-1) / ema) * 100;
-        return parseFloat(safeToFixed(rmi, 2));
+        return parseFloat(rmi.toFixed(2));
     },
 
     detectFairValueGaps(candles) {
@@ -252,10 +252,10 @@ const AnalysisEngine = {
             const previous = candles[i - 1];
             const pivot = candles[i - 2];
             if (current.high > previous.high && previous.high <= pivot.high) {
-                events.push(`BOS up through ${safeToFixed(previous.high, 2)}`);
+                events.push(`BOS up through ${previous.high.toFixed(2)}`);
             }
             if (current.low < previous.low && previous.low >= pivot.low) {
-                events.push(`Liquidity sweep below ${safeToFixed(previous.low, 2)}`);
+                events.push(`Liquidity sweep below ${previous.low.toFixed(2)}`);
             }
         }
         return events.slice(-6);
@@ -268,7 +268,7 @@ const AnalysisEngine = {
             .slice(-3)
             .map((candle) => {
                 const side = trend === "bullish" ? "Bullish demand" : "Bearish supply";
-                return `${side} ${safeToFixed(candle.low, 2)} - ${safeToFixed(candle.high, 2)}`;
+                return `${side} ${candle.low.toFixed(2)} - ${candle.high.toFixed(2)}`;
             });
         return matches.length ? matches : ["No clean order block found in current scan window."];
     },
@@ -352,10 +352,10 @@ const AnalysisEngine = {
             sl: levels[1],
             displayList: [
                 `Direction: ${isBullishImpulse ? 'Bullish' : 'Bearish'} Retracement`,
-                `Level 0 (TP): ${safeToFixed(levels[0], 2)}`,
-                `Level 0.618 (Entry): ${safeToFixed(levels[0.618], 2)}`,
-                `Level 0.705 (Entry): ${safeToFixed(levels[0.705], 2)}`,
-                `Level 1 (SL): ${safeToFixed(levels[1], 2)}`,
+                `Level 0 (TP): ${levels[0].toFixed(2)}`,
+                `Level 0.618 (Entry): ${levels[0.618].toFixed(2)}`,
+                `Level 0.705 (Entry): ${levels[0.705].toFixed(2)}`,
+                `Level 1 (SL): ${levels[1].toFixed(2)}`,
                 `Status: ${inEntryZone ? '🟢 IN ENTRY ZONE' : '⚪ Pending'}`
             ]
         };
@@ -389,7 +389,7 @@ const AnalysisEngine = {
         const orderBlocks = this.detectOrderBlocks(entry, trend);
         const fibonacci = this.detectFibonacci(entry, currentPrice);
         const reversalZones = fvgs.length
-            ? fvgs.slice(0, 3).map(f => `${f.side === "bullish" ? "Discount" : "Premium"} reversal zone near ${safeToFixed(f.price, 2)}`)
+            ? fvgs.slice(0, 3).map(f => `${f.side === "bullish" ? "Discount" : "Premium"} reversal zone near ${f.price.toFixed(2)}`)
             : ["No immediate reversal gap. Follow primary trend."];
         const liquidity = [
             `Session high ${Math.max(...entry.slice(-12).map(c => c.high)).toFixed(2)}`,
@@ -399,7 +399,7 @@ const AnalysisEngine = {
         const scenarios = [
             trend === "bullish"
                 ? `Base case: buy pullback into ${Math.max(currentPrice - 3, 0).toFixed(2)} - ${Math.max(currentPrice - 1, 0).toFixed(2)}`
-                : `Base case: sell retrace into ${safeToFixed(currentPrice + 1, 2)} - ${safeToFixed(currentPrice + 3, 2)}`,
+                : `Base case: sell retrace into ${(currentPrice + 1).toFixed(2)} - ${(currentPrice + 3).toFixed(2)}`,
             `Fail-safe: invalidate beyond ${(trend === "bullish" ? currentPrice - 4 : currentPrice + 4).toFixed(2)}`
         ];
         const sessions = [
@@ -525,11 +525,11 @@ const AnalysisEngine = {
         } else if (deltaVal < -0.7 && gammaVal < 0 && volRatioVal > 1.2 && compressionVal < 0.8) {
             recommendation = `STRONG SELL - Bearish breakdown accelerating. Aligned with GARCH warning score.`;
         } else if (trend === "bullish" && deltaVal > 0.3 && maxPainInterp.includes("below")) {
-            recommendation = `BUY pullbacks - Aligned with institutional fair value (${safeToFixed(maxPainVal, 2)}).`;
+            recommendation = `BUY pullbacks - Aligned with institutional fair value (${maxPainVal.toFixed(2)}).`;
         } else if (trend === "bearish" && deltaVal < -0.3 && maxPainInterp.includes("above")) {
-            recommendation = `SELL rallies - Aligned with institutional fair value (${safeToFixed(maxPainVal, 2)}).`;
+            recommendation = `SELL rallies - Aligned with institutional fair value (${maxPainVal.toFixed(2)}).`;
         } else if (compressionVal < 0.8) {
-            recommendation = `WAIT FOR BREAKOUT - High energy compression in progress (Bollinger Compression: ${safeToFixed(compressionVal, 2)}).`;
+            recommendation = `WAIT FOR BREAKOUT - High energy compression in progress (Bollinger Compression: ${compressionVal.toFixed(2)}).`;
         } else if (trend === "bullish") {
             recommendation = `BUY - Primary bullish trend holds.`;
         } else if (trend === "bearish") {
@@ -549,11 +549,11 @@ const AnalysisEngine = {
             : currentPrice < maxPainVal - 0.5 * currentAtr ? "below" : "near";
 
         const equationsText = [
-            `XAU/USD @ $${safeToFixed(currentPrice, 2)} | ATR(14): ${safeToFixed(currentAtr, 2)} | SMA-20: $${safeToFixed(maxPainVal, 2)} | IV: ${safeToFixed(ivVal * 100, 1)}%`,
-            `Momentum is ${dirWord} (Delta: ${safeToFixed(deltaVal, 2)}) and ${momWord} (Gamma: ${gammaVal >= 0 ? "+" : ""}${safeToFixed(gammaVal, 2)}). Volatility is ${volWord} (Vega: ${safeToFixed(vegaVal, 2)}).`,
+            `XAU/USD @ $${currentPrice.toFixed(2)} | ATR(14): ${currentAtr.toFixed(2)} | SMA-20: $${maxPainVal.toFixed(2)} | IV: ${(ivVal * 100).toFixed(1)}%`,
+            `Momentum is ${dirWord} (Delta: ${deltaVal.toFixed(2)}) and ${momWord} (Gamma: ${gammaVal >= 0 ? "+" : ""}${gammaVal.toFixed(2)}). Volatility is ${volWord} (Vega: ${vegaVal.toFixed(2)}).`,
             `${brkWord} Price is ${pricePos} the institutional fair-value anchor (${maxPainInterp}).`,
-            `GARCH forecast: ≈$${safeToFixed(garchForecast, 2)} expected move. Target probability to TP ($${safeToFixed(targetPrice, 2)}): ${probInterp}.`,
-            `Theta: ${safeToFixed(thetaVal, 2)} (${thetaInterp}) | Compression: ${safeToFixed(compressionVal, 2)} (${compressionInterp}).`,
+            `GARCH forecast: ≈$${garchForecast.toFixed(2)} expected move. Target probability to TP ($${targetPrice.toFixed(2)}): ${probInterp}.`,
+            `Theta: ${thetaVal.toFixed(2)} (${thetaInterp}) | Compression: ${compressionVal.toFixed(2)} (${compressionInterp}).`,
             `▶ Signal: ${recommendation}`
         ].join("\n");
 
@@ -609,7 +609,7 @@ const AnalysisEngine = {
             calcTp1 = fibonacci.tp;
             calcTp2 = fibonacci.tp;
             calcStop = fibonacci.sl;
-            tradePlan.push(`Fibonacci Golden Zone active. Target 0 at ${safeToFixed(calcTp1, 2)}. SL 1 at ${safeToFixed(calcStop, 2)}.`);
+            tradePlan.push(`Fibonacci Golden Zone active. Target 0 at ${calcTp1.toFixed(2)}. SL 1 at ${calcStop.toFixed(2)}.`);
         }
         
         confidence = Math.min(95, Math.max(30, confidence));
@@ -804,7 +804,7 @@ const LiquidityEngine = {
             if (pool.sessionStatus === "tracking") continue;
 
             // Skip dead levels (already SWEPT or BROKEN)
-            const levelKey = `${pool.shortName}_${safeToFixed(pool.price, 2)}`;
+            const levelKey = `${pool.shortName}_${pool.price.toFixed(2)}`;
             const currentStatus = this._levelStatuses[levelKey];
             if (currentStatus === "SWEPT" || currentStatus === "BROKEN") {
                 // Still push a "dead" marker so UI shows the status
@@ -921,27 +921,27 @@ const LiquidityEngine = {
     _addDiagnosticLog(pool, candle, event) {
         const bodySize = Math.abs(candle.close - candle.open);
         const totalRange = candle.high - candle.low;
-        const bodyPct = totalRange >safeToFixed(0 ? ((bodySize / totalRange) * 100), 1) : "0.0";
+        const bodyPct = totalRange > 0 ? ((bodySize / totalRange) * 100).toFixed(1) : "0.0";
         const istTime = new Date(candle.datetime).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
         const entry = {
             timestamp: istTime,
-            level: `${pool.name} @ $${safeToFixed(pool.price, 2)}`,
-            levelStatus: this._levelStatuses[`${pool.shortName}_${safeToFixed(pool.price, 2)}`] || "ACTIVE",
+            level: `${pool.name} @ $${pool.price.toFixed(2)}`,
+            levelStatus: this._levelStatuses[`${pool.shortName}_${pool.price.toFixed(2)}`] || "ACTIVE",
             candle: {
-                open: safeToFixed(candle.open, 2),
-                high: safeToFixed(candle.high, 2),
-                low: safeToFixed(candle.low, 2),
-                close: safeToFixed(candle.close, 2),
+                open: candle.open?.toFixed(2),
+                high: candle.high?.toFixed(2),
+                low: candle.low?.toFixed(2),
+                close: candle.close?.toFixed(2),
                 complete: candle.complete !== false
             },
             calculations: {
                 bodyPct: bodyPct + "%",
-                wickAbove: pool.side === "high" ? safeToFixed(candle.high - pool.price, 2) : "N/A",
-                wickBelow: pool.side === "low" ? safeToFixed(pool.price - candle.low, 2) : "N/A",
+                wickAbove: pool.side === "high" ? (candle.high - pool.price).toFixed(2) : "N/A",
+                wickBelow: pool.side === "low" ? (pool.price - candle.low).toFixed(2) : "N/A",
                 closeVsLevel: pool.side === "high"
-                    ? (candle.close > pool.price ? `ABOVE by $${safeToFixed(candle.close - pool.price, 2)}` : `BELOW by $${safeToFixed(pool.price - candle.close, 2)}`)
-                    : (candle.close < pool.price ? `BELOW by $${safeToFixed(pool.price - candle.close, 2)}` : `ABOVE by $${safeToFixed(candle.close - pool.price, 2)}`)
+                    ? (candle.close > pool.price ? `ABOVE by $${(candle.close - pool.price).toFixed(2)}` : `BELOW by $${(pool.price - candle.close).toFixed(2)}`)
+                    : (candle.close < pool.price ? `BELOW by $${(pool.price - candle.close).toFixed(2)}` : `ABOVE by $${(candle.close - pool.price).toFixed(2)}`)
             },
             decision: event.type,
             reason: event.childDetail || event.type
@@ -1014,7 +1014,7 @@ const LiquidityEngine = {
                     emoji: "🩸",
                     price: level,
                     childClose: close,
-                    childDetail: `Wick $${safeToFixed(wickAbove, 2)} above, Closed $${safeToFixed(level - close, 2)} below | Body ${safeToFixed(bodyRatio * 100, 0)}%`,
+                    childDetail: `Wick $${wickAbove.toFixed(2)} above, Closed $${(level - close).toFixed(2)} below | Body ${(bodyRatio * 100).toFixed(0)}%`,
                     bias: "REVERSAL EXPECTED ↓",
                     biasDirection: "reversal",
                     strength
@@ -1028,7 +1028,7 @@ const LiquidityEngine = {
                     emoji: "🩸",
                     price: level,
                     childClose: close,
-                    childDetail: `Engulfed back below $${safeToFixed(level, 2)} | Body ${safeToFixed(bodyRatio * 100, 0)}%`,
+                    childDetail: `Engulfed back below $${level.toFixed(2)} | Body ${(bodyRatio * 100).toFixed(0)}%`,
                     bias: "REVERSAL EXPECTED ↓",
                     biasDirection: "reversal",
                     strength: "Strong"
@@ -1049,7 +1049,7 @@ const LiquidityEngine = {
                         emoji: "⚠️",
                         price: level,
                         childClose: close,
-                        childDetail: `Closed $${safeToFixed(closeAbove, 2)} above, but upper wick rejection is too large (${safeToFixed(((upperWick / totalRange) * 100), 0)}%)`,
+                        childDetail: `Closed $${closeAbove.toFixed(2)} above, but upper wick rejection is too large (${((upperWick / totalRange) * 100).toFixed(0)}%)`,
                         bias: "PENDING — Wait for confirmation",
                         biasDirection: "pending",
                         strength: "Weak"
@@ -1068,7 +1068,7 @@ const LiquidityEngine = {
                         emoji: "💥",
                         price: level,
                         childClose: close,
-                        childDetail: `Closed $${safeToFixed(closeAbove, 2)} above | Body ${safeToFixed(bodyRatio * 100, 0)}%${fvgLabel}`,
+                        childDetail: `Closed $${closeAbove.toFixed(2)} above | Body ${(bodyRatio * 100).toFixed(0)}%${fvgLabel}`,
                         fvgZone: hasFVG.zone,
                         bias: "CONTINUATION UP ↑",
                         biasDirection: "continuation",
@@ -1084,7 +1084,7 @@ const LiquidityEngine = {
                         emoji: "⚠️",
                         price: level,
                         childClose: close,
-                        childDetail: `Closed $${safeToFixed(closeAbove, 2)} above, but sweep/breakout momentum is weak`,
+                        childDetail: `Closed $${closeAbove.toFixed(2)} above, but sweep/breakout momentum is weak`,
                         bias: "PENDING — Wait for confirmation",
                         biasDirection: "pending",
                         strength: "Weak"
@@ -1122,7 +1122,7 @@ const LiquidityEngine = {
                     emoji: "🩸",
                     price: level,
                     childClose: close,
-                    childDetail: `Wick $${safeToFixed(wickBelow, 2)} below, Closed $${safeToFixed(close - level, 2)} above | Body ${safeToFixed(bodyRatio * 100, 0)}%`,
+                    childDetail: `Wick $${wickBelow.toFixed(2)} below, Closed $${(close - level).toFixed(2)} above | Body ${(bodyRatio * 100).toFixed(0)}%`,
                     bias: "REVERSAL EXPECTED ↑",
                     biasDirection: "reversal",
                     strength
@@ -1136,7 +1136,7 @@ const LiquidityEngine = {
                     emoji: "🩸",
                     price: level,
                     childClose: close,
-                    childDetail: `Engulfed back below $${safeToFixed(level, 2)} | Body ${safeToFixed(bodyRatio * 100, 0)}%`,
+                    childDetail: `Engulfed back below $${level.toFixed(2)} | Body ${(bodyRatio * 100).toFixed(0)}%`,
                     bias: "REVERSAL EXPECTED ↑",
                     biasDirection: "reversal",
                     strength: "Strong"
@@ -1157,7 +1157,7 @@ const LiquidityEngine = {
                         emoji: "⚠️",
                         price: level,
                         childClose: close,
-                        childDetail: `Closed $${safeToFixed(closeBelow, 2)} below, but lower wick rejection is too large (${safeToFixed(((lowerWick / totalRange) * 100), 0)}%)`,
+                        childDetail: `Closed $${closeBelow.toFixed(2)} below, but lower wick rejection is too large (${((lowerWick / totalRange) * 100).toFixed(0)}%)`,
                         bias: "PENDING — Wait for confirmation",
                         biasDirection: "pending",
                         strength: "Weak"
@@ -1176,7 +1176,7 @@ const LiquidityEngine = {
                         emoji: "💥",
                         price: level,
                         childClose: close,
-                        childDetail: `Closed $${safeToFixed(closeBelow, 2)} below | Body ${safeToFixed(bodyRatio * 100, 0)}%${fvgLabel}`,
+                        childDetail: `Closed $${closeBelow.toFixed(2)} below | Body ${(bodyRatio * 100).toFixed(0)}%${fvgLabel}`,
                         fvgZone: hasFVG.zone,
                         bias: "CONTINUATION DOWN ↓",
                         biasDirection: "continuation",
@@ -1192,7 +1192,7 @@ const LiquidityEngine = {
                         emoji: "⚠️",
                         price: level,
                         childClose: close,
-                        childDetail: `Closed $${safeToFixed(closeBelow, 2)} below, but sweep/breakout momentum is weak`,
+                        childDetail: `Closed $${closeBelow.toFixed(2)} below, but sweep/breakout momentum is weak`,
                         bias: "PENDING — Wait for confirmation",
                         biasDirection: "pending",
                         strength: "Weak"
@@ -1444,11 +1444,11 @@ const LiquidityEngine = {
             const next = candles[idx + 1];
             // Bullish FVG: next candle's low is entirely above prior candle's high
             if (next.low > prev.high) {
-                return { formed: true, zone: `$${safeToFixed(prev.high, 2)} → $${safeToFixed(next.low, 2)}` };
+                return { formed: true, zone: `$${prev.high.toFixed(2)} → $${next.low.toFixed(2)}` };
             }
             // Bearish FVG: next candle's high is entirely below prior candle's low
             if (next.high < prev.low) {
-                return { formed: true, zone: `$${safeToFixed(next.high, 2)} → $${safeToFixed(prev.low, 2)}` };
+                return { formed: true, zone: `$${next.high.toFixed(2)} → $${prev.low.toFixed(2)}` };
             }
         }
 
@@ -1467,7 +1467,7 @@ const LiquidityEngine = {
                 return {
                     formed: true,
                     pending: true,
-                    zone: `$${safeToFixed(priorPrior.high, 2)} → $${safeToFixed(breakoutCandle.low, 2)} (Pending — await next close)`
+                    zone: `$${priorPrior.high.toFixed(2)} → $${breakoutCandle.low.toFixed(2)} (Pending — await next close)`
                 };
             }
             // Bearish body displacement: breakout candle's HIGH is below candle[n-2].LOW
@@ -1475,7 +1475,7 @@ const LiquidityEngine = {
                 return {
                     formed: true,
                     pending: true,
-                    zone: `$${safeToFixed(breakoutCandle.high, 2)} → $${safeToFixed(priorPrior.low, 2)} (Pending — await next close)`
+                    zone: `$${breakoutCandle.high.toFixed(2)} → $${priorPrior.low.toFixed(2)} (Pending — await next close)`
                 };
             }
         }
@@ -1551,7 +1551,7 @@ function fireLiquidityNotification(event) {
         : "💥 GOLD LIQUIDITY BROKEN (Continuation Signal)";
 
     let body = `Type    : ${event.displayName}\n`;
-    body += `Price   : $${safeToFixed(event.price, 2)}\n`;
+    body += `Price   : $${event.price.toFixed(2)}\n`;
     body += `Tier    : ${event.tierLabel}\n`;
     body += `Parent  : ${event.pool.parent}\n`;
     body += `Child TF: ${String(event.pool?.childTf || "N/A").toUpperCase()} (${event.childDetail || "N/A"}) ✅\n`;
@@ -1769,7 +1769,7 @@ function buildLocalAiFallback(analysis, reason) {
             riskNote: `AI model is currently unavailable. This output is generated by the local deterministic rule engine. Treat as a safety reference, not an AI consensus. Reason: ${reason}`
         },
         trader: {
-            entryZone: isFlat ? "N/A" : `Near $${safeToFixed(price, 2)} — wait for structure confirmation`,
+            entryZone: isFlat ? "N/A" : `Near $${price.toFixed(2)} — wait for structure confirmation`,
             takeProfitLevels: isFlat ? "N/A" : `T1: $${tp1}`,
             stopLoss: isFlat ? "N/A" : `$${stop}`,
             positionSizing: isFlat ? "N/A" : "Reduce size until AI confirms setup",
@@ -1797,15 +1797,15 @@ function renderMarketUI(a) {
     if (dom.get("#decisionLabel")) dom.get("#decisionLabel").textContent = d.action;
     if (dom.get("#confidenceLabel")) dom.get("#confidenceLabel").textContent = `${d.confidence}%`;
     if (dom.get("#riskLabel")) dom.get("#riskLabel").textContent = d.action === "Buy" || d.action === "Sell" ? "Active" : "Flat";
-    if (dom.get("#priceLabel")) dom.get("#priceLabel").textContent = safeToFixed(a.price, 2);
-    if (dom.get("#rmiValue")) dom.get("#rmiValue").textContent = safeToFixed(a.rmi.value, 2);
+    if (dom.get("#priceLabel")) dom.get("#priceLabel").textContent = a.price.toFixed(2);
+    if (dom.get("#rmiValue")) dom.get("#rmiValue").textContent = a.rmi.value.toFixed(2);
     if (dom.get("#rmiTrend")) {
         dom.get("#rmiTrend").textContent = a.rmi.bias.toUpperCase();
         dom.get("#rmiTrend").className = a.rmi.bias;
     }
     
     dom.fillList("#tradePlanList", d.tradePlan);
-    dom.fillList("#fvgList", a.fvgs.map(f => `${f.side.toUpperCase()} @ ${safeToFixed(f.price, 2)} [${f.type || "Standard"}]`));
+    dom.fillList("#fvgList", a.fvgs.map(f => `${f.side.toUpperCase()} @ ${f.price.toFixed(2)} [${f.type || "Standard"}]`));
     dom.fillList("#obList", a.orderBlocks || ["Awaiting chart analysis."]);
     dom.fillList("#structureList", a.structureEvents || ["Awaiting chart analysis."]);
     dom.fillList("#reversalList", a.reversalZones || ["Awaiting chart analysis."]);
@@ -1820,7 +1820,7 @@ function renderMarketUI(a) {
         sc.innerHTML = `
             <article class="summary-card"><p>Trend</p><strong>${a.trend.toUpperCase()}</strong></article>
             <article class="summary-card"><p>RMI Bias</p><strong>${a.rmi.bias.toUpperCase()}</strong></article>
-            <article class="summary-card"><p>Price</p><strong>${safeToFixed(a.price, 2)}</strong></article>
+            <article class="summary-card"><p>Price</p><strong>${a.price.toFixed(2)}</strong></article>
             <article id="summaryDebateCard" class="summary-card" style="cursor: pointer;"><p>Debate Council ↗</p><strong id="summaryDebateCount">—</strong></article>
         `;
         const debateCard = dom.get("#summaryDebateCard");
@@ -1863,7 +1863,7 @@ function renderLiquidityPoolsUI(pools, events) {
     if (Array.isArray(events)) {
         events.forEach(ev => {
             if (ev.pool) {
-                const key = `${ev.pool.shortName}_${safeToFixed(ev.pool.price, 2)}`;
+                const key = `${ev.pool.shortName}_${ev.pool.price.toFixed(2)}`;
                 eventMap[key] = ev;
             }
         });
@@ -1872,7 +1872,7 @@ function renderLiquidityPoolsUI(pools, events) {
     const renderTier = (tierName, tierKey, pools, cssClass) => {
         if (!pools || pools.length === 0) return "";
         const poolItems = pools.map(p => {
-            const levelKey = `${p.shortName}_${safeToFixed(p.price, 2)}`;
+            const levelKey = `${p.shortName}_${p.price.toFixed(2)}`;
             const ev = eventMap[levelKey]; // BUG FIX: use composite key, not just shortName
             const currentStatus = LiquidityEngine._levelStatuses[levelKey];
             
@@ -1887,7 +1887,7 @@ function renderLiquidityPoolsUI(pools, events) {
             else if (p.sessionStatus === "locked") { statusClass = "active"; statusText = "Locked"; }
             return `<div class="pool-item">
                 <span class="pool-name">${escapeHtml(p.name)}</span>
-                <span class="pool-price">$${safeToFixed(p.price, 2)}</span>
+                <span class="pool-price">$${p.price.toFixed(2)}</span>
                 <span class="pool-status ${statusClass}">${statusText}</span>
             </div>`;
         }).join("");
@@ -1947,7 +1947,7 @@ function renderLiquidityEventBox(events) {
             <div class="event-grid">
                 <span class="event-key">Event Type</span><span class="event-value">${ev.type} (${isSweep ? "Reversal Signal" : "Continuation Signal"})</span>
                 <span class="event-key">Liquidity</span><span class="event-value">${escapeHtml(ev.displayName)}</span>
-                <span class="event-key">Price Level</span><span class="event-value">$${safeToFixed(ev.price, 2)}</span>
+                <span class="event-key">Price Level</span><span class="event-value">$${ev.price.toFixed(2)}</span>
                 <span class="event-key">Parent Candle</span><span class="event-value">${ev.pool.parent}</span>
                 <span class="event-key">Child Candle</span><span class="event-value">${String(ev.pool?.childTf || "N/A").toUpperCase()} (${ev.childDetail || "N/A"}) ✅</span>
                 ${ev.fvgZone ? `<span class="event-key">FVG Zone</span><span class="event-value">${ev.fvgZone}</span>` : ""}
@@ -2389,13 +2389,13 @@ function updateRealTimeTracker(price, trend, structureEvents, fvgs, obs, decisio
   }
   if (trigText) {
     trigText.textContent = (nearOb || nearFvg)
-      ? `Price in sniper zone: ${safeToFixed(price, 2)}` 
+      ? `Price in sniper zone: ${price.toFixed(2)}` 
       : "Awaiting 70.5% OTE retest...";
   }
   if (targetText) {
     targetText.textContent = reachedTarget 
-      ? `TP Target hit at ${safeToFixed(price, 2)}!` 
-      : `Target: ${decision?.tp1 ? parseFloatsafeToFixed(decision.tp1, 2) : "n/a"}`;
+      ? `TP Target hit at ${price.toFixed(2)}!` 
+      : `Target: ${decision?.tp1 ? parseFloat(decision.tp1).toFixed(2) : "n/a"}`;
   }
 }
 
@@ -2448,10 +2448,10 @@ function startRealTimeFeeds(analysis) {
     }
     // Micro-fluctuation centered around the true fetched price to show lifelike ticks without artificial drift
     const microOffset = (Math.random() - 0.5) * 0.04;
-    const liveDisplayPrice = Number(safeToFixed(state.trueGoldPrice + microOffset, 2));
+    const liveDisplayPrice = Number((state.trueGoldPrice + microOffset).toFixed(2));
 
     const topPriceEl = document.getElementById("priceLabel");
-    if (topPriceEl) topPriceEl.textContent = safeToFixed(liveDisplayPrice, 2);
+    if (topPriceEl) topPriceEl.textContent = liveDisplayPrice.toFixed(2);
     
     if (analysis) {
       updateRealTimeTracker(liveDisplayPrice, analysis.trend, analysis.structureEvents, analysis.fvgs, analysis.orderBlocks, analysis.decision);
@@ -2541,23 +2541,23 @@ function buildAiPrompt(analysis, mtfData) {
         "",
         `Symbol: XAU/USD`,
         `Timeframe: ${entryTf}`,
-        `Current Price: ${Number.isFinite(price) ? safeToFixed(price, 2) : "n/a"}`,
+        `Current Price: ${Number.isFinite(price) ? price.toFixed(2) : "n/a"}`,
         `Rule Engine Direction: ${tradeBias}`,
         `Rule Engine Entry Range: ${entryRange}`,
-        `Rule Engine Stop: ${Number.isFinite(stop) ? safeToFixed(stop, 2) : "n/a"}`,
-        `Rule Engine TP1: ${Number.isFinite(tp1) ? safeToFixed(tp1, 2) : "n/a"}`,
-        `Rule Engine TP2: ${Number.isFinite(tp2) ? safeToFixed(tp2, 2) : "n/a"}`,
+        `Rule Engine Stop: ${Number.isFinite(stop) ? stop.toFixed(2) : "n/a"}`,
+        `Rule Engine TP1: ${Number.isFinite(tp1) ? tp1.toFixed(2) : "n/a"}`,
+        `Rule Engine TP2: ${Number.isFinite(tp2) ? tp2.toFixed(2) : "n/a"}`,
         `Trend: ${analysis?.trend || "n/a"}`,
         `RMI: ${analysis?.rmi?.value ?? "n/a"} (${analysis?.rmi?.bias || "n/a"})`,
         `HTF Alignment: ${Array.isArray(analysis?.htfAlignment) ? analysis.htfAlignment.join(" | ") : "n/a"}`,
         `Structure Events: ${Array.isArray(analysis?.structureEvents) ? analysis.structureEvents.join(", ") : "none"}`,
-        `Fair Value Gaps: ${Array.isArray(analysis?.fvgs) ? analysis.fvgs.map(f => `${f.side}@${safeToFixed(f.price, 2)}`).join(", ") : "none"}`,
+        `Fair Value Gaps: ${Array.isArray(analysis?.fvgs) ? analysis.fvgs.map(f => `${f.side}@${f.price.toFixed(2)}`).join(", ") : "none"}`,
         `Order Blocks: ${Array.isArray(analysis?.orderBlocks) ? analysis.orderBlocks.map(ob => {
             if (typeof ob === "string") return ob;
             if (ob && typeof ob === "object") {
                 const side = ob.side || (ob.low && ob.high ? (ob.low < ob.high ? "bullish" : "bearish") : "unknown");
                 const price = typeof ob.price === "number" ? ob.price : (typeof ob.low === "number" ? ob.low : 0);
-                return `${side}@${safeToFixed(price, 2)}`;
+                return `${side}@${price.toFixed(2)}`;
             }
             return "unknown";
         }).join(", ") : "none"}`,
@@ -2573,7 +2573,7 @@ function buildAiPrompt(analysis, mtfData) {
 function inferEntryRange(price, stop) {
     if (!Number.isFinite(price)) return "n/a";
     const distance = Number.isFinite(stop) ? Math.max(Math.abs(price - stop) * 0.4, 0.2) : 0.4;
-    return `${safeToFixed(price - distance, 2)} - ${safeToFixed(price + distance, 2)}`;
+    return `${(price - distance).toFixed(2)} - ${(price + distance).toFixed(2)}`;
 }
 
 function extractAiText(payload) {
@@ -3316,8 +3316,7 @@ window.addEventListener('DOMContentLoaded', () => {
     
     async function saveAdminSettings(key, value) {
         try {
-            const body = typeof key === "object" ? key : { [key]: value }
-    window.saveAdminSettings = saveAdminSettings;;
+            const body = typeof key === "object" ? key : { [key]: value };
             const response = await fetch(`${EDGE_API_BASE}${APP_CONFIG.settingsPath}`, {
                 method: 'POST',
                 headers: { 'x-admin-password': SETTINGS_PASSWORD, 'Content-Type': 'application/json' },
@@ -3335,24 +3334,21 @@ window.addEventListener('DOMContentLoaded', () => {
             return false;
         }
     }
-    
+    window.saveAdminSettings = saveAdminSettings;
 
     async function syncAiBackendSettings() {
         const globalNvidiaApiKeys = readGlobalNvidiaKeysInput();
         const globalNvidiaApiKey = globalNvidiaApiKeys[0] || "";
         applyGlobalNvidiaKeysToBlankModels(globalNvidiaApiKeys);
         saveLocalSettings();
-        const res_sas = saveAdminSettings({
+        return saveAdminSettings({
             globalNvidiaApiKey,
             globalNvidiaApiKeys,
             nvidiaModels: state.models,
             debateModels: state.debateModels,
             defaultModelKey: state.selectedModelKey
-        }
-    window.syncAiBackendSettings = syncAiBackendSettings;);
-        return res_sas;
         });
-        
+        window.syncAiBackendSettings = syncAiBackendSettings;
     }
 
     const saveMarketKeysBtn = dom.get("#saveMarketKeysButton");
@@ -3675,13 +3671,17 @@ function setupModelManager(isDebate) {
     };
 }
 
-
-    window.syncAiBackendSettings = syncAiBackendSettings;
+async function syncAiBackendSettings() {
+    if (typeof window !== "undefined" && window.syncAiBackendSettings) {
+        return await window.syncAiBackendSettings();
+    }
     console.warn("syncAiBackendSettings is not yet initialized.");
 }
 
-
-    window.saveAdminSettings = saveAdminSettings;
+async function saveAdminSettings(key, value) {
+    if (typeof window !== "undefined" && window.saveAdminSettings) {
+        return await window.saveAdminSettings(key, value);
+    }
     console.warn("saveAdminSettings is not yet initialized.");
 }
 
@@ -4017,8 +4017,8 @@ function showTrackerModal(stepName) {
     
     itemsHtml = `
       <li class="tracker-modal-value-item"><span class="lbl">Bias Direction</span><span class="val active">${escapeHtml(String(dec.action || "Awaiting").toUpperCase())}</span></li>
-      <li class="tracker-modal-value-item"><span class="lbl">Current Gold Price</span><span class="val">@ ${safeToFixed(current, 2)}</span></li>
-      <li class="tracker-modal-value-item"><span class="lbl">Protection Stop Loss</span><span class="val secondary">@ ${sl > 0 ? safeToFixed(sl, 2) : "n/a"}</span></li>
+      <li class="tracker-modal-value-item"><span class="lbl">Current Gold Price</span><span class="val">@ ${current.toFixed(2)}</span></li>
+      <li class="tracker-modal-value-item"><span class="lbl">Protection Stop Loss</span><span class="val secondary">@ ${sl > 0 ? sl.toFixed(2) : "n/a"}</span></li>
       <li class="tracker-modal-value-item"><span class="lbl">Confidence Rating</span><span class="val">${dec.confidence || 0}%</span></li>
     `;
   }
@@ -4033,9 +4033,9 @@ function showTrackerModal(stepName) {
     const sl = Number(dec.stopPrice || 0);
     
     itemsHtml = `
-      <li class="tracker-modal-value-item"><span class="lbl">Take Profit Target 1 (TP1)</span><span class="val active">@ ${tp1 > 0 ? safeToFixed(tp1, 2) : "n/a"}</span></li>
-      <li class="tracker-modal-value-item"><span class="lbl">Take Profit Target 2 (TP2)</span><span class="val secondary">@ ${tp2 > 0 ? safeToFixed(tp2, 2) : "n/a"}</span></li>
-      <li class="tracker-modal-value-item"><span class="lbl">Risk Protection (SL)</span><span class="val">@ ${sl > 0 ? safeToFixed(sl, 2) : "n/a"}</span></li>
+      <li class="tracker-modal-value-item"><span class="lbl">Take Profit Target 1 (TP1)</span><span class="val active">@ ${tp1 > 0 ? tp1.toFixed(2) : "n/a"}</span></li>
+      <li class="tracker-modal-value-item"><span class="lbl">Take Profit Target 2 (TP2)</span><span class="val secondary">@ ${tp2 > 0 ? tp2.toFixed(2) : "n/a"}</span></li>
+      <li class="tracker-modal-value-item"><span class="lbl">Risk Protection (SL)</span><span class="val">@ ${sl > 0 ? sl.toFixed(2) : "n/a"}</span></li>
     `;
   }
 
@@ -4393,7 +4393,7 @@ function scanSwingLegDetails(candles, startIdx, endIdx, isBullish) {
                     type: "Bullish FVG",
                     top: next.low,
                     bottom: prev.high,
-                    priceLabel: `$${safeToFixed(prev.high, 2)} → $${safeToFixed(next.low, 2)}`,
+                    priceLabel: `$${prev.high.toFixed(2)} → $${next.low.toFixed(2)}`,
                     status: isTapped ? "Tapped (Mitigated) ⚪" : "Open (Unmitigated) 🟢",
                     statusClass: isTapped ? "pending" : "tracking"
                 });
@@ -4406,7 +4406,7 @@ function scanSwingLegDetails(candles, startIdx, endIdx, isBullish) {
                     type: "Bearish FVG",
                     top: prev.low,
                     bottom: next.high,
-                    priceLabel: `$${safeToFixed(next.high, 2)} → $${safeToFixed(prev.low, 2)}`,
+                    priceLabel: `$${next.high.toFixed(2)} → $${prev.low.toFixed(2)}`,
                     status: isTapped ? "Tapped (Mitigated) ⚪" : "Open (Unmitigated) 🔴",
                     statusClass: isTapped ? "pending" : "swept"
                 });
@@ -4446,7 +4446,7 @@ function scanSwingLegDetails(candles, startIdx, endIdx, isBullish) {
             type: isBullish ? "Bullish OB" : "Bearish OB",
             top: obCandle.high,
             bottom: obCandle.low,
-            priceLabel: `$${safeToFixed(obCandle.low, 2)} → $${safeToFixed(obCandle.high, 2)}`,
+            priceLabel: `$${obCandle.low.toFixed(2)} → $${obCandle.high.toFixed(2)}`,
             status: isTapped ? "Tapped (Mitigated) ⚪" : "Open (Unmitigated) 🌟",
             statusClass: isTapped ? "pending" : (isBullish ? "tracking" : "swept")
         });
@@ -4595,8 +4595,8 @@ function openSwingDeepDiveModal(timeframeId, timeframeName) {
                 <div style="background:rgba(255,255,255,0.03); padding:1rem; border-radius:8px; display:grid; grid-template-columns: 1fr 1fr; gap:0.8rem; font-size:0.85rem;">
                     <div><span style="color:var(--muted);">Structure bias:</span> <strong style="color:var(--text);">${fib.isBullishImpulse ? 'Bullish Buy Pullback' : 'Bearish Sell Retrace'}</strong></div>
                     <div><span style="color:var(--muted);">OTE Live Call:</span> <strong class="${fib.statusClass}" style="padding:1px 6px; border-radius:4px;">${fib.statusText}</strong></div>
-                    <div><span style="color:var(--muted);">Swing Start (SL):</span> <strong style="color:var(--text); font-family:monospace;">$${safeToFixed(fib.sl, 2)}</strong></div>
-                    <div><span style="color:var(--muted);">Swing Target (TP):</span> <strong style="color:var(--text); font-family:monospace;">$${safeToFixed(fib.tp, 2)}</strong></div>
+                    <div><span style="color:var(--muted);">Swing Start (SL):</span> <strong style="color:var(--text); font-family:monospace;">$${fib.sl.toFixed(2)}</strong></div>
+                    <div><span style="color:var(--muted);">Swing Target (TP):</span> <strong style="color:var(--text); font-family:monospace;">$${fib.tp.toFixed(2)}</strong></div>
                 </div>
 
                 <!-- Section: Order Blocks (Origin) -->
@@ -4642,11 +4642,4 @@ function closeSwingDeepDiveModal() {
             modal.style.display = "none";
         }, 250);
     }
-}
-
-async function syncAiBackendSettings() {
-    if (typeof window !== 'undefined' && window.syncAiBackendSettings) return await window.syncAiBackendSettings();
-}
-async function saveAdminSettings(key, value) {
-    if (typeof window !== 'undefined' && window.saveAdminSettings) return await window.saveAdminSettings(key, value);
 }
