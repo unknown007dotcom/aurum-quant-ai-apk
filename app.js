@@ -22,9 +22,24 @@ import("./modules/engines/FibonacciEngine.js").then(mod => {
 const STORAGE_KEY = "xauusd-analyzer-settings-v1";
 const HISTORY_STORAGE_KEY = "xauusd-analyzer-history-v1";
 const DEVICE_ID_KEY = "xauusd-device-id-v1";
-const EDGE_API_BASE = (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol.includes("capacitor") || window.location.protocol.includes("http")))
-    ? (window.location.port === "3000" ? "/api" : (window.location.protocol === "file:" ? "" : "/api"))
-    : "/api";
+const EDGE_API_BASE = (function() {
+    if (typeof window !== "undefined" && window.__AURUM_API_BASE__) return String(window.__AURUM_API_BASE__).replace(/\/+$/, "");
+    if (typeof window === "undefined") return "/api";
+    const h = window.location.hostname;
+    const p = window.location.port;
+    const prot = window.location.protocol;
+    
+    // Local Node.js development
+    if (h === "localhost" && p === "3000") return "/api";
+    
+    // Capacitor / Android / Mobile Standalone
+    if (prot.includes("capacitor") || prot.includes("file") || h === "localhost" || h === "127.0.0.1") {
+        return "/api"; // Intercepted by aurum-backend.js
+    }
+    
+    // Production Website (Worker)
+    return "https://aurum-quant-edge.aurum-quant-ai.workers.dev";
+})();
 const APP_CONFIG = {
   marketMtfPath: "/market-mtf",
   aiChatPath: "/ai-decision",

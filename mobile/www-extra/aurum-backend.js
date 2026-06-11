@@ -462,7 +462,7 @@
       "nvidia/nemotron-3-nano-30b-a3b"
     ];
 
-    // Select up to 35 models from the permitted list or saved models
+    // Select up to 35 models
     var debatePool = [];
     permittedModels.forEach(function(id) {
       if (id !== "openai/gpt-oss-120b" && debatePool.length < 35) {
@@ -470,16 +470,17 @@
       }
     });
 
-    console.log("[ArbiterCouncil] Initiating debate with " + debatePool.length + " models...");
+    console.log("[ArbiterCouncil] Initiating massive debate with " + debatePool.length + " models...");
 
-    // Gather votes and short reasoning from all 35 models in parallel (chunks of 5 to avoid overloading)
+    // Run in parallel batches of 12 for better speed while respecting common browser limits
     var debateResults = [];
-    var CHUNK_SIZE = 5;
+    var CHUNK_SIZE = 12;
     for (var i = 0; i < debatePool.length; i += CHUNK_SIZE) {
       var chunk = debatePool.slice(i, i + CHUNK_SIZE);
       var chunkResults = await Promise.all(chunk.map(function (m) {
-        return nvidiaChat(keys, m, "You are a trading analyst. Analyze the data and reply with: DIRECTION: [BUY/SELL/WAIT] | REASON: [One sentence].",
-          promptWithLearning, 0.2, 100, 20000).then(function(res) {
+        return nvidiaChat(keys, m, "You are a professional XAU/USD trading analyst. Analyze the provided institutional data and provide your concise directional bias.",
+          "MARKET DATA:\n" + promptWithLearning + "\n\nProvide your response in exactly this format: DIRECTION: [BUY/SELL/WAIT] | REASON: [One sentence maximum].", 
+          0.1, 80, 25000).then(function(res) {
             return { model: m.id, output: res };
           }).catch(function (err) {
             return { model: m.id, output: null, error: err.message };
@@ -499,35 +500,43 @@
       successfulDebates.push(r.model + ": " + r.output);
     });
 
-    // --- Final Synthesis by Chief Arbiter ---
-    // User requested gpt-oss-120b for synthesis. 
-    // We'll try to find it in the provided keys/models, or fallback to the strongest 70B.
-    var synthesizerModel = { id: "openai/gpt-oss-120b", baseUrl: DEFAULT_AI_BASE };
+    // --- Final Synthesis by Chief Arbiter (GPT-OSS-120B) ---
+    // We try gpt-oss-120b first as requested, then fall back to Llama 3.1 405B or 70B.
+    var synthCandidates = [
+        { id: "openai/gpt-oss-120b", label: "GPT-OSS-120B" },
+        { id: "meta/llama-3.1-405b-instruct", label: "Llama 3.1 405B" },
+        { id: "meta/llama-3.1-70b-instruct", label: "Llama 3.1 70B" }
+    ];
+
+    var content = null;
+    var finalModelUsed = "";
     
     var synthesisPrompt = 
-      "You are the Chief Arbiter (GPT-OSS-120B). 35 AI models have debated a XAU/USD setup.\n\n" +
-      "DEBATE RESULTS:\n" + successfulDebates.join("\n") + "\n\n" +
+      "You are the Chief Arbiter. You have received reports from 35 institutional AI models regarding a XAU/USD trading setup.\n\n" +
+      "DEBATE SUMMARIES:\n" + successfulDebates.join("\n") + "\n\n" +
       "ORIGINAL MARKET DATA:\n" + prompt + "\n\n" +
-      "Compare and combine these 35 viewpoints. Resolve conflicts and identify the institutional consensus. " +
-      "Output the final institutional decision in the required JSON format.";
+      "YOUR TASK:\n" +
+      "1. Compare and combine these viewpoints.\n" +
+      "2. Identify the institutional consensus.\n" +
+      "3. Resolve any conflicting signals.\n" +
+      "4. Output the final decision in the required JSON format. Ensure entry, TP, and SL levels are mathematically sound based on current price.";
 
-    var content = await nvidiaChat(keys, synthesizerModel, summarySystemPrompt(), synthesisPrompt, temperature, 1400, 60000);
-
-    if (!content) {
-      // Fallback to 70B if 120B failed
-      synthesizerModel.id = "meta/llama-3.1-70b-instruct";
-      content = await nvidiaChat(keys, synthesizerModel, summarySystemPrompt(), synthesisPrompt, temperature, 1400, 60000);
+    for (var j = 0; j < synthCandidates.length; j++) {
+      content = await nvidiaChat(keys, synthCandidates[j], summarySystemPrompt(), synthesisPrompt, temperature, 1500, 60000);
+      if (content) {
+        finalModelUsed = synthCandidates[j].id;
+        break;
+      }
     }
 
     if (!content) {
-      // Fallback if synthesis fails
       return jsonResp(Object.assign(textPayload(
-        '{"researcher":{"summary":"Synthesis failed after debate. Consensus: BUY=' + consensus.buy + ', SELL=' + consensus.sell + ', WAIT=' + consensus.wait + '","direction":"Stay Flat","riskNote":"Synthesis Error."},"trader":{"entryZone":"N/A","takeProfitLevels":"N/A","stopLoss":"N/A"},"equations":{"review":"Arbiter synthesis failed."}}',
-        synthesizerModel.id || "device-fallback"),
+        '{"researcher":{"summary":"Arbiter synthesis failed. Debate Consensus: BUY=' + consensus.buy + ', SELL=' + consensus.sell + ', WAIT=' + consensus.wait + '","direction":"Stay Flat","riskNote":"Check API connectivity."},"trader":{"entryZone":"N/A","takeProfitLevels":"N/A","stopLoss":"N/A"},"equations":{"review":"Arbiter offline."}}',
+        "device-fallback"),
         { fallbackUsed: true, learningMemoryUsed: stats.total > 0, debateUsed: true, debateAttempted: debatePool.length, debateSuccessful: successfulDebates.length, debateConsensus: consensus }));
     }
 
-    return jsonResp(Object.assign(textPayload(content, synthesizerModel.id || "device"), {
+    return jsonResp(Object.assign(textPayload(content, finalModelUsed), {
       fallbackUsed: false,
       learningMemoryUsed: stats.total > 0,
       debateUsed: true,
@@ -535,7 +544,12 @@
       debateSuccessful: successfulDebates.length,
       debateConsensus: consensus,
       debateResponses: debateResults.map(function(r) { 
-        return { modelId: r.model, modelLabel: r.model, output: r.output, bias: r.output && r.output.toLowerCase().indexOf("buy") >= 0 ? "bullish" : (r.output && r.output.toLowerCase().indexOf("sell") >= 0 ? "bearish" : "balanced") }; 
+        return { 
+          modelId: r.model, 
+          modelLabel: r.model.split("/").pop(), 
+          output: r.output || "Error: " + (r.error || "Timeout"), 
+          bias: r.output && r.output.toLowerCase().indexOf("buy") >= 0 ? "bullish" : (r.output && r.output.toLowerCase().indexOf("sell") >= 0 ? "bearish" : "balanced") 
+        }; 
       })
     }));
   }
