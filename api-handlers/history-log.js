@@ -1,25 +1,50 @@
 const { getFirestore } = require("../lib/firebase-admin");
+const { isAdminPassword } = require("../lib/admin-auth");
+const ingest = require("../lib/history-ingest");
 const DEFAULT_BASE = "https://aurum-quant-ai.vercel.app";
 
 module.exports = async function handler(req, res) {
   if (req.method === "POST") {
     const body = await getRequestBody(req);
-    const entry = body?.entry && typeof body.entry === "object" ? body.entry : null;
-    const source = String(body?.source || "manual");
-    if (!entry) {
-      res.status(400).json({ message: "Missing history entry." });
+    const source = String(body?.source || "manual").slice(0, 40);
+
+    // Validate and bound the payload before anything touches storage.
+    const validated = ingest.validateEntry(body?.entry);
+    if (!validated.ok) {
+      res.status(validated.status).json({ message: validated.message });
       return;
     }
+    const entry = validated.entry;
+
+    // A caller must identify itself; no silent User-Agent hashing, which made
+    // every anonymous client share one bucket and hid abuse.
+    const declaredDeviceId = ingest.normalizeDeviceId(
+      entry.deviceId || req.headers["x-device-id"],
+    );
+    if (!declaredDeviceId) {
+      res.status(400).json({
+        message: "Missing or invalid device id (8-120 chars: letters, digits, . _ : -).",
+      });
+      return;
+    }
+
+    // Trusted operator bypasses the rate limit; everyone else is throttled.
+    const isTrusted = isAdminPassword(String(req.headers["x-admin-password"] || ""));
+    if (!isTrusted && ingest.isRateLimited(declaredDeviceId).limited) {
+      res.setHeader("Retry-After", "600");
+      res.status(429).json({ message: "Too many history writes for this device. Try again later." });
+      return;
+    }
+    // Count the attempt before storage is touched: a caller must not be able to
+    // dodge the limiter by forcing the local-fallback path.
+    if (!isTrusted) ingest.recordWrite(declaredDeviceId);
+
     try {
       const Persistence = require("../lib/persistence");
       await Persistence.init();
       const db = getFirestore();
 
-      const inferredDeviceId = String(
-        entry.deviceId ||
-        req.headers["x-device-id"] ||
-        `browser-${hashFromString(String(req.headers["user-agent"] || ""))}`,
-      ).slice(0, 120);
+      const inferredDeviceId = declaredDeviceId;
       const payload = {
         ...entry,
         source,
@@ -39,7 +64,10 @@ module.exports = async function handler(req, res) {
           Persistence.logSignal(payload)
       ]);
 
-      triggerAutoLearn(req).catch(() => {});
+      // Throttled so a burst of writes cannot fan out into repeated AI runs.
+      if (ingest.shouldTriggerAutoLearn()) {
+        triggerAutoLearn(req).catch(() => {});
+      }
       res.setHeader("Cache-Control", "no-store");
       res.status(200).json({ ok: true });
       return;
@@ -47,11 +75,7 @@ module.exports = async function handler(req, res) {
       try {
         const Persistence = require("../lib/persistence");
         await Persistence.init();
-        const inferredDeviceId = String(
-          entry.deviceId ||
-          req.headers["x-device-id"] ||
-          `browser-${hashFromString(String(req.headers["user-agent"] || ""))}`,
-        ).slice(0, 120);
+        const inferredDeviceId = declaredDeviceId;
         const payload = {
           ...entry,
           source,
@@ -66,6 +90,9 @@ module.exports = async function handler(req, res) {
           storageMode: "local-fallback",
         };
         await Persistence.logSignal(payload);
+        if (ingest.shouldTriggerAutoLearn()) {
+          triggerAutoLearn(req).catch(() => {});
+        }
         res.setHeader("Cache-Control", "no-store");
         res.status(200).json({ ok: true, storageMode: "local-fallback" });
         return;
@@ -127,15 +154,6 @@ async function getRequestBody(req) {
   } catch {
     return {};
   }
-}
-
-function hashFromString(value) {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-  }
-  return Math.abs(hash >>> 0).toString(16);
 }
 
 async function triggerAutoLearn(req) {

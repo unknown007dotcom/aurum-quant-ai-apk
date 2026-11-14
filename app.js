@@ -22,6 +22,23 @@ import("./modules/engines/FibonacciEngine.js").then(mod => {
 const STORAGE_KEY = "xauusd-analyzer-settings-v1";
 const HISTORY_STORAGE_KEY = "xauusd-analyzer-history-v1";
 const DEVICE_ID_KEY = "xauusd-device-id-v1";
+
+// Stable per-browser id. Sent with history writes so the server can attribute and
+// rate-limit them (see lib/history-ingest.js). Format-compatible with the server
+// pattern: 8-120 chars of [A-Za-z0-9._:-].
+function getDeviceId() {
+    try {
+        const existing = localStorage.getItem(DEVICE_ID_KEY);
+        if (existing && existing.length >= 8) return existing;
+        const generated = (window.crypto && window.crypto.randomUUID)
+            ? `web-${window.crypto.randomUUID()}`
+            : `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+        localStorage.setItem(DEVICE_ID_KEY, generated);
+        return generated;
+    } catch (error) {
+        return `web-ephemeral-${Date.now().toString(36)}`;
+    }
+}
 const EDGE_API_BASE = (function() {
     if (typeof window !== "undefined" && window.__AURUM_API_BASE__) return String(window.__AURUM_API_BASE__).replace(/\/+$/, "");
     if (typeof window === "undefined") return "/api";
@@ -2701,8 +2718,10 @@ async function syncHistory(analysis, aiData) {
             }
         }
 
+        const deviceId = getDeviceId();
         const entry = {
             id: Date.now(),
+            deviceId,
             timestamp: new Date().toISOString(),
             price: analysis.price,
             rmi: analysis.rmi.value,
@@ -2724,7 +2743,7 @@ async function syncHistory(analysis, aiData) {
         
         await fetch(`${EDGE_API_BASE}${APP_CONFIG.historyLogPath}`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "x-device-id": deviceId },
             body: JSON.stringify({ entry, source: "manual-bot-preview" })
         });
     } catch (e) {}
