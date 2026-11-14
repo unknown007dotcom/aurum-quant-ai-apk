@@ -1,4 +1,5 @@
 const { getFirestore, getAdminSettings } = require("../lib/firebase-admin");
+const { authorizeCron } = require("../lib/cron-auth");
 
 const DEFAULT_BASE = "https://aurum-quant-ai.vercel.app";
 const MAX_SCAN_ITEMS = 120;
@@ -10,11 +11,9 @@ const DEFAULT_AI_BASE = "https://integrate.api.nvidia.com/v1";
 const TRADE_AUTO_CLOSE_MS = 30 * 60 * 1000;
 
 module.exports = async function handler(req, res) {
-  const cronAuth = process.env.CRON_SECRET || "";
-  const provided = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-  const isCronCall = req.headers["x-vercel-cron"] === "1";
-  if (cronAuth && !isCronCall && provided !== cronAuth) {
-    res.status(401).json({ message: "Unauthorized." });
+  const auth = authorizeCron(req);
+  if (!auth.ok) {
+    res.status(auth.status).json({ message: auth.message });
     return;
   }
 
