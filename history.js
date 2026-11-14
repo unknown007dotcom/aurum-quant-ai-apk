@@ -1,3 +1,5 @@
+import { parseTakeProfits } from "./modules/trade-levels.mjs";
+
 const safeToFixed = (val, dec = 2) => { const n = Number(val); return Number.isFinite(n) ? n.toFixed(dec) : "0.00"; };
 const HISTORY_STORAGE_KEY = "xauusd-analyzer-history-v1";
 const EDGE_API_BASE = (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"))
@@ -421,7 +423,6 @@ function parseTradeLevels(entry) {
   }
   const overlay = String(entry.aiOverlay || "");
   const execStr = Array.isArray(entry.executionOverview) ? entry.executionOverview.join(" ") : String(entry.executionOverview || "");
-  const combinedText = overlay + " " + execStr;
   
   const result = { direction: "", entryZone: "", invalidation: "", tps: [], outcome: getEntryOutcome(entry) };
 
@@ -452,23 +453,8 @@ function parseTradeLevels(entry) {
     if (backupSl) result.invalidation = backupSl[1].replace(".", "");
   }
 
-  // Extract TP levels from combined text
-  const tpRegex = /(?:TP|Take[\s-]?Profit|Target)\s*(\d)?\s*[:\s]*\$?([\d,]+\.?\d*)/gi;
-  let m;
-  while ((m = tpRegex.exec(combinedText)) !== null) {
-    const level = m[1] ? parseInt(m[1]) : result.tps.length + 1;
-    const price = parseFloat(m[2].replace(/,/g, ""));
-    if (price > 0 && price !== parseFloat(result.entryZone)) result.tps.push({ level, price });
-  }
-
-  // Deduplicate and sort
-  const seen = new Set();
-  result.tps = result.tps.filter(t => {
-    const key = safeToFixed(t.price, 2);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).sort((a, b) => a.level - b.level).slice(0, 3);
+  // Extract TP levels from combined text (shared, tested parser).
+  result.tps = parseTakeProfits(overlay, entry.executionOverview, { entryZone: result.entryZone });
 
   return result;
 }
