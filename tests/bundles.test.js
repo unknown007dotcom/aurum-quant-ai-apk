@@ -12,12 +12,36 @@ const { execFileSync } = require("node:child_process");
 
 const ROOT = path.join(__dirname, "..");
 
-function syntaxCheck(relPath) {
+// A file is treated as an ES module if its source uses import/export syntax,
+// which is how the browser sees modules/config.js and history.js. Detection is
+// source-based (not message-based) because Node 20 and 22 word the "not a
+// module" warning differently.
+function looksLikeEsm(relPath) {
+  const text = fs.readFileSync(path.join(ROOT, relPath), "utf8");
+  return /^\s*(?:export\s+(?:const|let|var|function|class|default)|import\s+[^("])/m.test(text);
+}
+
+function runCheck(file) {
   try {
-    execFileSync(process.execPath, ["--check", path.join(ROOT, relPath)], { stdio: "pipe" });
+    execFileSync(process.execPath, ["--check", file], { stdio: "pipe" });
     return null;
   } catch (error) {
     return String(error.stderr || error.message).split("\n").slice(0, 4).join(" ");
+  }
+}
+
+function syntaxCheck(relPath) {
+  const file = path.join(ROOT, relPath);
+  if (!looksLikeEsm(relPath)) {
+    return runCheck(file);
+  }
+  // Node only allows `--check` to treat a file as a module via its extension.
+  const tmp = path.join(require("node:os").tmpdir(), `syntax-${process.pid}-${path.basename(relPath)}.mjs`);
+  try {
+    fs.copyFileSync(file, tmp);
+    return runCheck(tmp);
+  } finally {
+    fs.rmSync(tmp, { force: true });
   }
 }
 
@@ -38,20 +62,7 @@ for (const script of SHIPPED_SCRIPTS) {
       // mobile-runtime.js is optional in the build.
       return;
     }
-    let error = syntaxCheck(script);
-    // ES modules (export/import) need an .mjs view for --check.
-    if (error && /Unexpected token 'export'|Cannot use import statement|Failed to load the ES module|Unexpected token 'import'|import statement outside a module/i.test(error)) {
-      const tmp = path.join(require("node:os").tmpdir(), `syntax-${path.basename(script)}.mjs`);
-      fs.copyFileSync(file, tmp);
-      try {
-        execFileSync(process.execPath, ["--check", tmp], { stdio: "pipe" });
-        error = null;
-      } catch (moduleError) {
-        error = String(moduleError.stderr || moduleError.message).split("\n").slice(0, 4).join(" ");
-      } finally {
-        fs.rmSync(tmp, { force: true });
-      }
-    }
+    const error = syntaxCheck(script);
     assert.equal(error, null, `${script} does not parse: ${error}`);
   });
 }
