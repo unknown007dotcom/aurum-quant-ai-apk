@@ -15,8 +15,11 @@ Local static web app for analyzing live `XAU/USD` market structure with:
 
 This build should be run through the local server so the `/api/*` routes are available.
 
-```powershell
-node server.js
+Requires Node.js 20 or newer (pinned in `.nvmrc` and `package.json` → `engines`).
+
+```bash
+npm start            # same as: node server.js
+PORT=8080 npm start  # override the port (defaults to 3000)
 ```
 
 Then open `http://localhost:3000`.
