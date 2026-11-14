@@ -173,6 +173,18 @@
     try { localStorage.setItem(key, json); } catch (e) {}
   }
 
+  // Stable on-device identifier, mirroring the web client's xauusd-device-id-v1
+  // so history writes are attributable and rate-limitable server-side.
+  var DEVICE_ID_PREF_KEY = "xauusd-device-id-v1";
+  async function getDeviceId() {
+    var existing = await prefGet(DEVICE_ID_PREF_KEY);
+    var value = typeof existing === "string" ? existing : (existing && existing.id) || "";
+    if (value && String(value).length >= 8) return String(value);
+    var generated = "android-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+    await prefSet(DEVICE_ID_PREF_KEY, generated);
+    return generated;
+  }
+
   async function getSettings() {
     return (await prefGet(SETTINGS_PREF_KEY)) || {};
   }
@@ -744,6 +756,7 @@
       if (!entry) return jsonResp({ message: "Missing history entry." }, 400);
       var sig = extractSignalFields(entry);
       var record = Object.assign({}, entry, {
+        deviceId: String(entry.deviceId || (await getDeviceId())),
         source: String(body.source || "manual"),
         id: String(entry.id || entry.syncId || Date.now()),
         createdAt: Number(entry.createdAt || Date.now()),
