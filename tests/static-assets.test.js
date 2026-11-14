@@ -22,7 +22,6 @@ test("app assets are still served", () => {
     "/favicon.svg",
     "/logo.svg",
     "/candle_guide.png",
-    "/modules/ui.js",
     "/modules/trade-levels.mjs",
   ]) {
     assert.equal(status(asset), 200, `${asset} should be served`);

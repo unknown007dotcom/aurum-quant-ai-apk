@@ -13,7 +13,7 @@ const { execFileSync } = require("node:child_process");
 const ROOT = path.join(__dirname, "..");
 
 // A file is treated as an ES module if its source uses import/export syntax,
-// which is how the browser sees modules/config.js and history.js. Detection is
+// which is how the browser sees history.js. Detection is
 // source-based (not message-based) because Node 20 and 22 word the "not a
 // module" warning differently.
 function looksLikeEsm(relPath) {
@@ -50,7 +50,6 @@ const SHIPPED_SCRIPTS = [
   "history.js",
   "server.js",
   "api/index.js",
-  "modules/config.js",
   "mobile/www-extra/aurum-backend.js",
   "mobile/www-extra/mobile-runtime.js",
 ];
@@ -79,4 +78,59 @@ test("no truncated '[...]' markers in shipped scripts", () => {
     if (text.includes("[...]")) offenders.push(script);
   }
   assert.deepEqual(offenders, [], `truncated payload marker found in: ${offenders.join(", ")}`);
+});
+
+test("no shipped script imports a module that does not exist", () => {
+  // The dead parallel frontend (modules/*.js, sim_boot.js, extract-engine.js) was
+  // deleted in #24. A stale import would only surface as a 404 in the browser,
+  // so resolve every local import/require against the filesystem here.
+  const offenders = [];
+  const sources = [];
+  const walk = (dir, depth = 0) => {
+    if (depth > 3) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (["node_modules", ".git", "android", "www", "www-extra", "tests"].includes(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full, depth + 1);
+      else if (/\.(js|mjs)$/.test(entry.name)) sources.push(full);
+    }
+  };
+  walk(ROOT);
+
+  for (const file of sources) {
+    const text = fs.readFileSync(file, "utf8");
+    const specs = [];
+    // import x from "./y"  |  import("./y")  |  require("./y")
+    for (const match of text.matchAll(/(?:from\s+|import\s*\(|require\s*\()\s*["'](\.[^"']+)["']/g)) {
+      specs.push(match[1]);
+    }
+    for (const spec of specs) {
+      const target = path.resolve(path.dirname(file), spec);
+      const candidates = [target, `${target}.js`, `${target}.mjs`, path.join(target, "index.js")];
+      if (!candidates.some((candidate) => fs.existsSync(candidate))) {
+        offenders.push(`${path.relative(ROOT, file)} -> ${spec}`);
+      }
+    }
+  }
+
+  assert.deepEqual(offenders, [], `dangling local imports: ${offenders.join(", ")}`);
+});
+
+test("the dead parallel frontend stays deleted", () => {
+  for (const gone of [
+    "modules/analysis.js",
+    "modules/api.js",
+    "modules/config.js",
+    "modules/dom.js",
+    "modules/sentinel.js",
+    "modules/state.js",
+    "modules/ui.js",
+    "modules/utils.js",
+    "modules/engines/MixerEngine.js",
+    "sim_boot.js",
+    "extract-engine.js",
+  ]) {
+    assert.equal(fs.existsSync(path.join(ROOT, gone)), false, `${gone} should not exist`);
+  }
+  assert.equal(fs.existsSync(path.join(ROOT, "modules", "trade-levels.mjs")), true, "trade-levels.mjs is live");
 });
