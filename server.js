@@ -2,6 +2,7 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const { URL } = require("node:url");
+const { resolveStaticFile } = require("./lib/static-assets");
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
@@ -113,23 +114,23 @@ function createResponseAdapter(nodeRes) {
 }
 
 function serveStatic(requestPath, res) {
-  const safePath = requestPath === "/" ? "/index.html" : requestPath;
-  const filePath = path.join(ROOT, safePath);
-  const normalizedPath = path.normalize(filePath);
+  const resolved = resolveStaticFile(ROOT, requestPath);
 
-  if (!normalizedPath.startsWith(ROOT)) {
-    return sendJson(res, 403, { message: "Forbidden path." });
-  }
-
-  if (!fs.existsSync(normalizedPath) || fs.statSync(normalizedPath).isDirectory()) {
+  if (!resolved.ok) {
+    if (resolved.status === 403) {
+      return sendJson(res, 403, { message: "Forbidden path." });
+    }
+    if (resolved.status === 400) {
+      return sendJson(res, 400, { message: "Malformed path." });
+    }
     return sendJson(res, 404, { message: "File not found." });
   }
 
-  const extension = path.extname(normalizedPath).toLowerCase();
+  const extension = path.extname(resolved.filePath).toLowerCase();
   const contentType = MIME_TYPES[extension] || "application/octet-stream";
 
   res.writeHead(200, { "Content-Type": contentType });
-  fs.createReadStream(normalizedPath).pipe(res);
+  fs.createReadStream(resolved.filePath).pipe(res);
 }
 
 function sendJson(res, statusCode, payload) {
