@@ -38,6 +38,9 @@ cp .env.example .env     # then fill in your own keys
 | `OANDA_API_TOKEN`, `OANDA_ACCOUNT_ID` | OANDA practice/live data + execution. |
 | `TWELVE_DATA_API_KEY`, `POLYGON_API_KEY`, `ALPHA_VANTAGE_KEY` | Market/options data providers. |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | Firestore persistence. |
+| `TRADING_BOT_ALLOW_LIVE` | Must be `true` for live orders — necessary but not sufficient, the risk limits below still apply. |
+| `RISK_MAX_UNITS`, `RISK_MAX_OPEN_POSITIONS`, `RISK_MAX_DAILY_LOSS`, `RISK_MAX_DAILY_ORDERS` | Hard server-side risk caps enforced before any live order (see `lib/risk-limits.js`). A breach blocks the tick. |
+| `RISK_KILL_SWITCH` | `true` blocks every live order immediately, whatever the bot mode. |
 | `CRON_SECRET` | Bearer token for `/api/auto-analyze` and `/api/auto-learn`. **If unset, both endpoints return 503** rather than running unauthenticated. Vercel sends this automatically for scheduled invocations. |
 
 `data/settings.json` is a **runtime** store written by the app (settings saved
