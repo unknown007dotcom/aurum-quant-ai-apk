@@ -10,14 +10,6 @@ const safeToFixed = (val, dec = 2) => {
     return Number.isFinite(n) ? n.toFixed(dec) : "0.00";
 };
 
-// --- Dynamic Imports ---
-let FibonacciEngine = null;
-import("./modules/engines/FibonacciEngine.js").then(mod => {
-    FibonacciEngine = mod.FibonacciEngine;
-}).catch(err => {
-    console.error("Failed to load FibonacciEngine module", err);
-});
-
 // --- Constants & Config ---
 const STORAGE_KEY = "xauusd-analyzer-settings-v1";
 const HISTORY_STORAGE_KEY = "xauusd-analyzer-history-v1";
