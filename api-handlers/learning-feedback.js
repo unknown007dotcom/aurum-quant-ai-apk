@@ -1,4 +1,6 @@
 const { getFirestore } = require("../lib/firebase-admin");
+const { isAdminPassword } = require("../lib/admin-auth");
+const policy = require("../lib/learning-feedback-policy");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
@@ -7,21 +9,33 @@ module.exports = async function handler(req, res) {
   }
 
   const body = await getRequestBody(req);
-  const outcome = String(body.outcome || "").toLowerCase();
-  const reason = String(body.reason || "").trim().slice(0, 400);
-  const timeframe = String(body.timeframe || "").trim().slice(0, 20);
-  const direction = String(body.direction || "").trim().slice(0, 30);
-  const summary = String(body.summary || "").trim().slice(0, 500);
-  const entryId = String(body.entryId || "").trim().slice(0, 80);
 
-  if (!["win", "loss"].includes(outcome)) {
-    res.status(400).json({ message: "Outcome must be win or loss." });
+  const validated = policy.validateFeedback(body);
+  if (!validated.ok) {
+    res.status(validated.status).json({ message: validated.message });
     return;
   }
-  if (outcome === "loss" && !reason) {
-    res.status(400).json({ message: "Please provide what went wrong for loss entries." });
+  const { outcome, reason, timeframe, direction, summary, entryId, counted } = validated.feedback;
+
+  // Identify the caller: no anonymous writes to the document that conditions the
+  // model's win-rate.
+  const deviceId = policy.normalizeDeviceId(
+    body.deviceId || req.headers["x-device-id"],
+  );
+  if (!deviceId) {
+    res.status(400).json({
+      message: "Missing or invalid device id (8-120 chars: letters, digits, . _ : -).",
+    });
     return;
   }
+
+  const isTrusted = isAdminPassword(String(req.headers["x-admin-password"] || ""));
+  if (!isTrusted && policy.isRateLimited(deviceId)) {
+    res.setHeader("Retry-After", "600");
+    res.status(429).json({ message: "Too many feedback writes for this device. Try again later." });
+    return;
+  }
+  if (!isTrusted) policy.recordWrite(deviceId);
 
   try {
     const db = getFirestore();
@@ -33,8 +47,16 @@ module.exports = async function handler(req, res) {
       direction,
       summary,
       entryId,
+      deviceId,
       createdAt: now,
     });
+
+    if (!counted) {
+      // A manual note is stored above but must not skew win/loss statistics.
+      res.setHeader("Cache-Control", "no-store");
+      res.status(200).json({ ok: true, counted: false });
+      return;
+    }
 
     const globalRef = db.collection("learning").doc("global");
     await db.runTransaction(async (tx) => {
