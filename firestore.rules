@@ -1,0 +1,44 @@
+rules_version = '2';
+
+// Firestore security rules — DENY EVERY CLIENT.
+//
+// Why deny-all is correct here:
+//
+//   The only Firestore client in this project is the Admin SDK
+//   (lib/firebase-admin.js, authenticated with FIREBASE_SERVICE_ACCOUNT_JSON).
+//   The Admin SDK bypasses these rules entirely. There is no `initializeApp`
+//   call with a web config anywhere in the browser bundle, so no legitimate
+//   client read or write exists to allow.
+//
+//   Every browser and phone interaction goes through the API
+//   (/api/history-log, /api/learning-feedback, /api/settings, ...), which is
+//   where validation, device identity and rate limiting live
+//   (see lib/history-ingest.js, lib/learning-feedback-policy.js,
+//   lib/admin-auth.js, lib/cron-auth.js).
+//
+// Therefore: if a client can read or write this database directly, the API
+// controls have been bypassed and that is a bug — not a missing permission.
+// A console left in "test mode" (`allow read, write: if true`) is exactly that
+// bug, and it would expose OANDA credentials, the analysis history and the
+// learning corpus.
+//
+// Deploy:
+//   firebase deploy --only firestore:rules
+// Verify:
+//   firebase firestore:databases:get <db>   # check the rule set is the live one
+//   or Firebase console -> Firestore -> Rules (it must show this file, not
+//   `allow read, write: if true`).
+//
+// If a client-side feature ever genuinely needs direct access, do not widen
+// this file — add an API route instead, or add a narrowly scoped rule with an
+// auth requirement and a comment explaining why.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Server-side Admin SDK access only. No client reads or writes, ever.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
