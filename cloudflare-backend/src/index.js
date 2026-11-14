@@ -32,6 +32,22 @@ const ALLOWED_ORIGINS = [
   "http://127.0.0.1:3000",
 ];
 
+// Capacitor/WebView and LAN preview builds have no stable origin, so allow the
+// schemes the app is actually packaged with instead of reflecting anything.
+const ALLOWED_ORIGIN_PATTERNS = [
+  /^capacitor:\/\//,
+  /^ionic:\/\//,
+  /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/,
+  /^https:\/\/aurum-quant-ai[a-z0-9-]*\.vercel\.app$/,
+];
+
+function isAllowedOrigin(origin) {
+  const value = String(origin || "").trim();
+  if (!value) return false;
+  if (ALLOWED_ORIGINS.includes(value)) return true;
+  return ALLOWED_ORIGIN_PATTERNS.some((pattern) => pattern.test(value));
+}
+
 const GRANULARITY_MAP = {
   "1min": "M1",
   "5min": "M5",
@@ -2519,13 +2535,25 @@ function jsonResponse(payload, request, status = 200) {
   });
 }
 
+/**
+ * CORS is allow-listed. Previously this reflected any Origin back, which let any
+ * website drive the backend from a visitor's browser (CODE_REVIEW.md §5). For an
+ * unknown origin we omit the header entirely, so the browser blocks the response
+ * rather than the server leaking it.
+ */
 function corsHeaders(request) {
-  const origin = request.headers.get("Origin") || "*";
-  return {
-    "Access-Control-Allow-Origin": origin,
+  const origin = request && request.headers ? request.headers.get("Origin") : null;
+  const headers = {
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, x-admin-password",
+    "Access-Control-Allow-Headers": "Content-Type, x-admin-password, x-device-id",
+    "Access-Control-Max-Age": "600",
+    // Responses vary by Origin; never let a cache serve one origin's response to another.
+    Vary: "Origin",
   };
+  if (isAllowedOrigin(origin)) {
+    headers["Access-Control-Allow-Origin"] = String(origin);
+  }
+  return headers;
 }
 
 function normalizeInstrument(value) {
