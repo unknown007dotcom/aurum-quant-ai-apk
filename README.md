@@ -51,6 +51,27 @@ is the committed, credential-free template. Copy it if you need a starting point
 cp data/settings.example.json data/settings.json
 ```
 
+## Module systems
+
+The repository deliberately mixes module systems; here is the boundary:
+
+| Area | System | Why |
+| --- | --- | --- |
+| Root `package.json` | `"type": "commonjs"` | `server.js`, `api/`, `api-handlers/` and `lib/` are required by Node and the Vercel runtime with `require()`. |
+| `modules/trade-levels.mjs` | ESM (`.mjs`) | Imported by `history.js` in the browser and by `node --test`; the explicit extension keeps it ESM under a CommonJS root. |
+| `modules/fib-ote.js` | classic script | Assigns `window.calculateFibonacciOTE`; loaded by `<script>` **before** `app.js`. A dynamic import would leave a window where the function is undefined. |
+| `app.js`, `history.js` | classic / ESM in the browser | `app.js` is a classic script; `history.js` is a module (`type="module"`). |
+| `cloudflare-backend/` | `"type": "module"` | Cloudflare Workers are ESM (`export default { fetch }`). |
+
+Rule of thumb: server code is CommonJS, browser code is a classic script unless
+it is a `type="module"` tag, and anything shared with tests uses an explicit
+`.mjs` extension.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Includes a trading-risk disclaimer: enabling live
+mode places real orders on your account.
+
 ## Tests
 
 ```bash
