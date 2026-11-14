@@ -526,7 +526,7 @@
 
     if (!keys.length) {
       return jsonResp(Object.assign(textPayload(
-        '{"researcher":{"summary":"No NVIDIA API key set. Open Settings and paste your nvapi- key to enable AI analysis.","direction":"Stay Flat","riskNote":"AI offline."},"trader":{"entryZone":"[...]
+        "{\"researcher\":{\"summary\":\"No NVIDIA API key set. Open Settings and paste your nvapi- key to enable AI analysis.\",\"direction\":\"Stay Flat\",\"riskNote\":\"AI offline.\"},\"trader\":{\"entryZone\":\"N/A\",\"takeProfitLevels\":\"N/A\",\"stopLoss\":\"N/A\",\"positionSizing\":\"N/A\",\"timeHorizon\":\"N/A\",\"invalidation\":\"N/A\"},\"equations\":{\"review\":\"Deterministic fallback: AI layer unavailable.\"},\"scorecard\":{\"tdsScore\":0,\"confluence\":\"Low\",\"grade\":\"Skip\",\"confidence\":0,\"drivers\":[]}}",
         "device-fallback"), { fallbackUsed: true, learningMemoryUsed: stats.total > 0, debateUsed: false }));
     }
 
@@ -615,9 +615,9 @@
 
     if (!content) {
       return jsonResp(Object.assign(textPayload(
-        '{"researcher":{"summary":"Arbiter synthesis failed. Debate Consensus: BUY=' + consensus.buy + ', SELL=' + consensus.sell + ', WAIT=' + consensus.wait + '","direction":"Stay Flat","riskNo[...]
+        JSON.stringify({ researcher: { summary: "Arbiter synthesis failed. Debate Consensus: BUY=" + consensus.buy + ", SELL=" + consensus.sell + ", WAIT=" + consensus.wait, direction: "Stay Flat", riskNote: "Debate failed to produce a synthesis. Falling back to deterministic output." }, trader: { entryZone: "N/A", takeProfitLevels: "N/A", stopLoss: "N/A", positionSizing: "N/A", timeHorizon: "N/A", invalidation: "N/A" }, equations: { review: "Arbiter synthesis unavailable." }, scorecard: { tdsScore: 0, confluence: "Low", grade: "Skip", confidence: 0, drivers: [] } }),
         "device-fallback"),
-        { fallbackUsed: true, learningMemoryUsed: stats.total > 0, debateUsed: true, debateAttempted: debatePool.length, debateSuccessful: successfulDebates.length, debateConsensus: consensus }))[...]
+        { fallbackUsed: true, learningMemoryUsed: stats.total > 0, debateUsed: true, debateAttempted: debatePool.length, debateSuccessful: successfulDebates.length, debateConsensus: consensus }));
     }
 
     return jsonResp(Object.assign(textPayload(content, finalModelUsed), {
@@ -649,7 +649,7 @@
     if (request.method === "GET") {
       if (action === "metrics") {
         var st = await learningStats();
-        return jsonResp({ metrics: { totalAnalyses: st.total, tpHits: st.tp, slHits: st.sl, winRate: st.winRate, evaluated: st.tp + st.sl, pending: 0, uniqueDevices: 1, learningReviewCount: (awai[...]
+        return jsonResp({ metrics: { totalAnalyses: st.total, tpHits: st.tp, slHits: st.sl, winRate: st.winRate, evaluated: st.tp + st.sl, pending: 0, uniqueDevices: 1, learningReviewCount: 0, learningFeedbackCount: 0, feedbackTpHits: 0, feedbackSlHits: 0, generatedAt: Date.now() } });
       }
       // On device, the holder of the phone is always admin.
       return jsonResp({ isAdmin: true, settings: s });
@@ -833,7 +833,7 @@
       try {
         var keys = collectTwelveKeys(s);
         if (cfg.configured && cfg.accountId) {
-          var r = await robustFetch(cfg.baseUrl + "/v3/accounts/" + encodeURIComponent(cfg.accountId) + "/pricing?instruments=" + encodeURIComponent(instrument), { headers: { Authorization: "Bear[...]
+          var r = await robustFetch(cfg.baseUrl + "/v3/accounts/" + encodeURIComponent(cfg.accountId) + "/pricing?instruments=" + encodeURIComponent(instrument), { headers: { Authorization: "Bearer " + cfg.token } });
           var p = await r.json(); var px = p && p.prices && p.prices[0];
           if (px) { var b = Number(px.closeoutBid), a = Number(px.closeoutAsk); price = (isFinite(b) && isFinite(a)) ? (a + b) / 2 : (b || a); }
         }
@@ -851,7 +851,7 @@
   }
 
   // ---------------- ROUTER (fetch interceptor) ----------------
-  var ROUTES = ["/market-mtf", "/live-price", "/ai-decision", "/settings", "/history-log", "/learning-context", "/learning-feedback", "/bot"];
+  var ROUTES = ["/market-mtf", "/live-price", "/ai-decision", "/settings", "/history-log", "/learning-context", "/learning-feedback", "/bot", "/market-data", "/options-intel", "/intel", "/auto-analyze", "/auto-learn"];
 
   function matchRoute(pathname) {
     for (var i = 0; i < ROUTES.length; i++) {
