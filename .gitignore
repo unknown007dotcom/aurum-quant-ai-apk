@@ -10,3 +10,6 @@ cloudflare-backend/.wrangler/
 .wrangler/
 aurum-server.err.log
 aurum-server.out.log
+
+# Runtime settings store (contains API tokens). Committed example: data/settings.example.json
+data/settings.json

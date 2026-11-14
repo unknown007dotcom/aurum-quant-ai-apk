@@ -1,4 +1,5 @@
 const { getBotStatus, runBotTick, setBotEnabled, updateBotSettings } = require("../lib/trading-bot");
+const { isAdminPassword } = require("../lib/admin-auth");
 
 module.exports = async function handler(req, res) {
   if (req.method === "GET") {
@@ -15,10 +16,8 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ message: "Method not allowed." });
   }
 
-  const adminPassword = process.env.ADMIN_PASSWORD || "";
   const supplied = String(req.headers["x-admin-password"] || "");
-  const isAdmin = (adminPassword && supplied === adminPassword) || supplied === "Aviraj@api7";
-  if (!isAdmin) {
+  if (!isAdminPassword(supplied)) {
     return res.status(401).json({ message: "Unauthorized." });
   }
 

@@ -1,13 +1,13 @@
 const { getAdminSettings, setAdminSettings, getFirestore } = require("../lib/firebase-admin");
+const { isAdminPassword } = require("../lib/admin-auth");
 
 const DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1";
 
 module.exports = async function handler(req, res) {
   const method = req.method;
   const action = req.query.action;
-  const adminPassword = process.env.ADMIN_PASSWORD || "";
   const supplied = String(req.headers["x-admin-password"] || "");
-  const isAdmin = (adminPassword && supplied === adminPassword) || supplied === "Aviraj@api7";
+  const isAdmin = isAdminPassword(supplied);
 
   if (method === "GET") {
     try {

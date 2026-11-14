@@ -52,8 +52,31 @@ const APP_CONFIG = {
   defaultMarketDataKey: "",
   defaultBaseUrl: "https://integrate.api.nvidia.com/v1"
 };
-const SETTINGS_PASSWORD = "Aviraj@api7";
+// The admin password is NEVER shipped in the client bundle. The Settings unlock
+// prompt asks for the password at runtime and the server decides whether it is
+// admin: app.js sends it to /api/settings and keeps it in memory for the session
+// only when the server answers { isAdmin: true }. An unset ADMIN_PASSWORD now
+// denies every request (see lib/admin-auth.js).
 const BASIC_SETTINGS_PASSWORD = "XAUUSD";
+
+// Password captured from the unlock prompt; session-only, never persisted.
+let SETTINGS_PASSWORD = "";
+
+async function verifyAdminPassword(password) {
+    const candidate = String(password || "");
+    if (!candidate) return false;
+    try {
+        const response = await fetch(`${EDGE_API_BASE}${APP_CONFIG.settingsPath}`, {
+            headers: { "x-admin-password": candidate },
+            cache: "no-store",
+        });
+        if (!response.ok) return false;
+        const payload = await response.json().catch(() => ({}));
+        return payload.isAdmin === true;
+    } catch (error) {
+        return false;
+    }
+}
 
 // --- State Management ---
 let state = {
@@ -3151,13 +3174,16 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const unlockBtn = dom.get("#submitPasswordButton");
     if (unlockBtn) {
-        unlockBtn.onclick = () => {
+        unlockBtn.onclick = async () => {
             const passInput = dom.get("#passwordInput");
             const pass = passInput ? passInput.value : "";
             const errorEl = dom.get("#passwordError");
             if (errorEl) errorEl.textContent = ""; // Clear existing errors
-            
-            if (pass === SETTINGS_PASSWORD || pass === BASIC_SETTINGS_PASSWORD) {
+
+            const isAdminPass = pass !== BASIC_SETTINGS_PASSWORD && await verifyAdminPassword(pass);
+            if (isAdminPass) SETTINGS_PASSWORD = pass;
+
+            if (isAdminPass || pass === BASIC_SETTINGS_PASSWORD) {
                 if (pass === BASIC_SETTINGS_PASSWORD) {
                     state.settingsRole = "basic";
                     document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
