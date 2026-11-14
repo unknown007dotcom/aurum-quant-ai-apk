@@ -2763,9 +2763,10 @@ async function submitLearningFeedback(outcome) {
             : `${direction} setup ended at breakeven.`;
 
     try {
+        const feedbackDeviceId = getDeviceId();
         const res = await fetch(`${EDGE_API_BASE}/learning-feedback`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "x-device-id": feedbackDeviceId },
             body: JSON.stringify({
                 outcome,
                 direction,
@@ -2774,6 +2775,7 @@ async function submitLearningFeedback(outcome) {
                 analysisId: String(Date.now()),
                 arbiterDirection: direction,
                 price: last.analysis?.price || 0,
+                deviceId: feedbackDeviceId,
             }),
         });
         const data = await res.json().catch(() => ({}));
@@ -2803,9 +2805,10 @@ async function promptLearningNote() {
     
     const direction = last.direction || "Stay Flat";
     try {
+        const noteDeviceId = getDeviceId();
         const res = await fetch(`${EDGE_API_BASE}/learning-feedback`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "x-device-id": noteDeviceId },
             body: JSON.stringify({
                 outcome: "manual-note",
                 direction,
@@ -2813,6 +2816,7 @@ async function promptLearningNote() {
                 reason: note.trim(),
                 analysisId: String(Date.now()),
                 arbiterDirection: direction,
+                deviceId: noteDeviceId,
                 price: last.analysis?.price || 0,
             }),
         });
