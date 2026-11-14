@@ -1,3 +1,20 @@
+/**
+ * Admin auth for the Worker. Deny-by-default: an unset ADMIN_PASSWORD accepts
+ * nothing, instead of falling back to a hardcoded password.
+ */
+function isAdminMatch(supplied, env) {
+  const expected = String((env && env.ADMIN_PASSWORD) || "").trim();
+  const given = String(supplied || "");
+  if (!expected || !given || expected.length !== given.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let i = 0; i < expected.length; i += 1) {
+    diff |= expected.charCodeAt(i) ^ given.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 const DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1";
 const DEFAULT_INSTRUMENT = "XAU_USD";
 const HISTORY_LIMIT = 150;
@@ -348,8 +365,7 @@ async function handleSettings(request, env) {
   const action = String(url.searchParams.get("action") || "");
   const settings = await loadSettings(env);
   const supplied = String(request.headers.get("x-admin-password") || "");
-  const adminPassword = String(env.ADMIN_PASSWORD || "Aviraj@api7").trim();
-  const isAdmin = supplied === adminPassword;
+  const isAdmin = isAdminMatch(supplied, env);
 
   if (request.method === "GET") {
     if (action === "metrics") {
@@ -2487,8 +2503,7 @@ function createTextPayload(text, modelId) {
 
 function assertAdmin(request, env) {
   const supplied = String(request.headers.get("x-admin-password") || "");
-  const adminPassword = String(env.ADMIN_PASSWORD || "Aviraj@api7").trim();
-  if (supplied !== adminPassword) {
+  if (!isAdminMatch(supplied, env)) {
     throw new Error("Unauthorized.");
   }
 }

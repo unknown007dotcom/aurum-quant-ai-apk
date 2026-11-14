@@ -1,16 +1,15 @@
 {
-  "oandaApiToken": "b228b6d0d19275bca9f6d50af7e59229-b8a32a361cfa128c61474633a249735d",
+  "oandaApiToken": "",
   "oandaAccountId": "",
-  "globalNvidiaApiKey": "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",
-  "globalNvidiaApiKeys": [
-    "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"
-  ],
+  "oandaEnvironment": "practice",
+  "oandaInstrument": "XAU_USD",
+  "globalNvidiaApiKey": "",
+  "globalNvidiaApiKeys": [],
   "nvidiaModels": [
     {
       "key": "meta-llama-3-1-70b-instruct",
       "id": "meta/llama-3.1-70b-instruct",
       "label": "Llama 3.1 70B (Primary)",
-      "apiKey": "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",
       "baseUrl": "https://integrate.api.nvidia.com/v1"
     }
   ],
@@ -19,7 +18,6 @@
       "key": "meta-llama-3-1-405b-instruct",
       "id": "meta/llama-3.1-405b-instruct",
       "label": "Llama 3.1 405B (Debater)",
-      "apiKey": "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",
       "baseUrl": "https://integrate.api.nvidia.com/v1",
       "bias": "both",
       "isDebateParticipant": true

@@ -64,5 +64,10 @@ export const APP_CONFIG = {
   },
 };
 
-export const SETTINGS_PASSWORD = "Aviraj@api7";
+// Admin password is entered at runtime and verified by the backend; it is never
+// hardcoded here (a bundled literal is a working credential for everyone).
+export let SETTINGS_PASSWORD = "";
+export function setSettingsPassword(password) {
+  SETTINGS_PASSWORD = String(password || "");
+}
 export const BASIC_SETTINGS_PASSWORD = "XAUUSD";

@@ -21,6 +21,38 @@ node server.js
 
 Then open `http://localhost:3000`.
 
+## Configuration
+
+Secrets are supplied through environment variables, never committed:
+
+```bash
+cp .env.example .env     # then fill in your own keys
+```
+
+| Variable | Purpose |
+| --- | --- |
+| `ADMIN_PASSWORD` | Admin unlock for the Settings panel, bot control and `/api/settings`. **If unset, admin access is denied** — there is no default password. |
+| `OANDA_API_TOKEN`, `OANDA_ACCOUNT_ID` | OANDA practice/live data + execution. |
+| `TWELVE_DATA_API_KEY`, `POLYGON_API_KEY`, `ALPHA_VANTAGE_KEY` | Market/options data providers. |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firestore persistence. |
+
+`data/settings.json` is a **runtime** store written by the app (settings saved
+from the UI, including API keys). It is git-ignored; `data/settings.example.json`
+is the committed, credential-free template. Copy it if you need a starting point:
+
+```bash
+cp data/settings.example.json data/settings.json
+```
+
+## Tests
+
+```bash
+npm test
+```
+
+Runs the `node:test` suite in `tests/` (admin-auth policy, secrets policy).
+CI runs it on every push and pull request via `.github/workflows/tests.yml`.
+
 ## Notes
 
 - Opening [index.html](index.html) directly will show the UI shell, but scans are disabled because this build depends on the local API handlers in [server.js](server.js) and the [api](api) folder.
