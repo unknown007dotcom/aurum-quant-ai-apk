@@ -117,7 +117,10 @@ let state = {
       key: 'meta-llama-3-1-70b-instruct',
       id: 'meta/llama-3.1-70b-instruct',
       label: 'Llama 3.1 70B (Default)',
-      apiKey: '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',
+      // Never ship a key in client defaults: app.js is public (issue #29).
+      // Keys come from Settings (server, admin-authenticated) or the phone's
+      // local store; an empty default falls back to the deterministic engine.
+      apiKey: '',
       baseUrl: 'https://integrate.api.nvidia.com/v1',
     }],
   debateModels: [

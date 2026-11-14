@@ -1,0 +1,54 @@
+{
+  "indexes": [
+    {
+      "//": "api-handlers/auto-learn.js saveLearningOutcome(): dedupe before insert",
+      "collectionGroup": "learning_feedback",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "entryId", "order": "ASCENDING" },
+        { "fieldPath": "outcome", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "api-handlers/settings.js + auto-learn.js: newest-first scans",
+      "collectionGroup": "learning_feedback",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "api-handlers/history-log.js, settings.js, ai-decision.js: newest-first history",
+      "collectionGroup": "analysis_history",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "api-handlers/settings.js: model review list",
+      "collectionGroup": "learning_model_reviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "api-handlers/auto-learn.js runFailureDebateAndPersist(): one review per failed trade",
+      "collectionGroup": "learning_model_reviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "entryId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "api-handlers/learning-context.js: latest lessons",
+      "collectionGroup": "learning",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
